@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0F0F1E" />
+  <title>ياللي · الهوست 👑</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Space+Grotesk:wght@500;700;900&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-stage">
+  <div class="stars"></div>
+
+  <main class="relative z-10 min-h-screen px-4 py-6 sm:py-10">
+    <!-- شريط علوي -->
+    <header class="max-w-5xl mx-auto flex items-center justify-between mb-6">
+      <a href="index.html" class="text-2xl font-black neon-gold">ياللي 👑</a>
+      <div id="host-state-pill" class="score-badge"><span id="state-label">…</span></div>
+    </header>
+
+    <div id="container" class="max-w-5xl mx-auto">
+
+      <!-- ============================================
+           1) شاشة إدخال الاسم (للهوست أول مرة)
+           ============================================ -->
+      <section id="screen-name" class="glass p-8 max-w-md mx-auto fade-in hidden">
+        <h2 class="text-3xl font-black text-center mb-2 neon-gold">قبل ما نبدأ...</h2>
+        <p class="text-center text-muted mb-6">اكتب اسمك علشان تلعب مع الشلة</p>
+        <input id="host-name-input" type="text" maxlength="14" placeholder="اسمك يا بطل" class="input-glow text-center mb-4" />
+        <button id="host-name-go" class="btn-neon w-full">يا الله 🚀</button>
+      </section>
+
+      <!-- ============================================
+           2) Lobby - الانتظار حتى يدخل اللاعبين
+           ============================================ -->
+      <section id="screen-lobby" class="hidden">
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- كود الغرفة + QR -->
+          <div class="glass p-6 sm:p-8 text-center card-pop">
+            <p class="text-muted font-bold mb-2">كود الغرفة</p>
+            <div class="flex items-center justify-center gap-3 mb-4">
+              <h2 id="room-code-big" class="text-6xl sm:text-7xl font-black neon-gold tracking-wider font-en">------</h2>
+              <button id="btn-copy-code" class="btn-ghost py-2 px-3" title="نسخ">
+                📋
+              </button>
+            </div>
+            <div id="qr-container" class="bg-white rounded-xl p-3 inline-block mb-4"></div>
+            <p class="text-sm text-muted">امسح الـ QR من جوالك أو اكتب الكود في <span class="font-en font-bold neon-gold" id="link-domain">الموقع</span></p>
+          </div>
+
+          <!-- اللاعبين -->
+          <div class="glass p-6 sm:p-8 card-pop">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-2xl font-black">الشلة 🔥</h3>
+              <span id="player-count" class="score-badge">0</span>
+            </div>
+            <div id="lobby-players" class="space-y-2 mb-6 min-h-[200px]">
+              <!-- لاعبين يتعبّون هنا -->
+            </div>
+            <button id="btn-start-game" class="btn-neon w-full pulse-gold" disabled>
+              <span>يا الله نبدأ!</span>
+              <span>⚡</span>
+            </button>
+            <p class="text-xs text-center text-muted mt-3">يبيلنا على الأقل لاعبين 2</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================
+           3) Writing - اللاعبين يكتبون أسئلة
+           ============================================ -->
+      <section id="screen-writing" class="hidden">
+        <div class="glass p-6 sm:p-10 text-center card-pop max-w-2xl mx-auto">
+          <div class="text-7xl mb-4">✍️</div>
+          <h2 class="text-3xl sm:text-4xl font-black mb-2">الشلة يكتبون أسئلتهم</h2>
+          <p id="writing-funny-msg" class="text-muted font-bold mb-6">…</p>
+
+          <div class="mb-6">
+            <div class="flex items-center justify-between mb-2 text-sm font-bold">
+              <span>التقدّم</span>
+              <span><span id="writing-done">0</span> / <span id="writing-total">0</span></span>
+            </div>
+            <div class="progress-bar">
+              <div id="writing-progress" class="progress-bar-fill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div id="writing-players" class="grid sm:grid-cols-2 gap-2 mb-6"></div>
+
+          <button id="btn-start-voting" class="btn-neon w-full" disabled>
+            <span>يلا نصوّت!</span>
+            <span>⚡</span>
+          </button>
+          <p class="text-xs text-center text-muted mt-3">الزر يفعّل لما الكل يخلّص</p>
+        </div>
+      </section>
+
+      <!-- ============================================
+           4) Voting - عرض السؤال + متابعة الأصوات
+           ============================================ -->
+      <section id="screen-voting" class="hidden">
+        <div class="glass p-6 sm:p-10 card-pop max-w-3xl mx-auto">
+          <p class="text-center text-muted font-bold mb-2">السؤال 🤔</p>
+          <h2 id="voting-question" class="text-3xl sm:text-5xl font-black text-center mb-8 neon-gold leading-tight">…</h2>
+
+          <div class="mb-6">
+            <div class="flex items-center justify-between mb-2 text-sm font-bold">
+              <span>التصويت</span>
+              <span><span id="voting-done">0</span> / <span id="voting-total">0</span></span>
+            </div>
+            <div class="progress-bar">
+              <div id="voting-progress" class="progress-bar-fill" style="width:0%"></div>
+            </div>
+          </div>
+
+          <div id="voting-players-status" class="grid sm:grid-cols-2 gap-2 mb-6"></div>
+
+          <button id="btn-reveal" class="btn-neon w-full" disabled>
+            <span>اكشف الفايز!</span>
+            <span>👑</span>
+          </button>
+          <p class="text-xs text-center text-muted mt-3">يفعّل لما الكل يصوّت</p>
+        </div>
+      </section>
+
+      <!-- ============================================
+           5) Results - الفايز + GIF
+           ============================================ -->
+      <section id="screen-results" class="hidden">
+        <div class="glass glass-red p-6 sm:p-10 card-pop max-w-3xl mx-auto text-center">
+          <p class="text-muted font-bold mb-2" id="results-tagline">الفايز هو...</p>
+
+          <div class="text-8xl winner-crown mb-4">👑</div>
+          <h2 id="winner-name" class="text-4xl sm:text-6xl font-black neon-gold mb-2">…</h2>
+          <p class="text-xl text-muted mb-6">صوّتوا له <span id="winner-votes" class="text-red-warm font-black">0</span> 🗳️</p>
+
+          <div id="gif-container" class="rounded-2xl overflow-hidden mb-6 inline-block max-w-full">
+            <div class="spinner"></div>
+          </div>
+
+          <!-- مينيمبورد - مختصر -->
+          <div id="mini-board" class="space-y-2 mb-6 max-w-md mx-auto"></div>
+
+          <div class="flex flex-col sm:flex-row gap-3">
+            <button id="btn-next-q" class="btn-neon flex-1">
+              <span>السؤال اللي بعده</span>
+              <span>⚡</span>
+            </button>
+            <button id="btn-end-game" class="btn-ghost flex-1">إنهاء اللعبة</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================
+           6) Finished - الفايز النهائي
+           ============================================ -->
+      <section id="screen-finished" class="hidden">
+        <div class="glass p-6 sm:p-12 card-pop max-w-2xl mx-auto text-center">
+          <div class="text-8xl mb-4">🏆</div>
+          <p class="text-xl font-bold text-muted mb-2">شامبيون اللعبة</p>
+          <h2 id="champion-name" class="text-5xl sm:text-7xl font-black neon-gold mb-8">…</h2>
+
+          <div id="final-board" class="space-y-2 mb-8"></div>
+
+          <div class="flex gap-3">
+            <a href="index.html" class="btn-neon flex-1 no-underline">لعبة جديدة 🔥</a>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script type="module" src="js/host.js"></script>
+</body>
+</html>

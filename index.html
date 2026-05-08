@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="ياللي - لعبة جماعية شبابية. مين فيكم...؟" />
+  <meta name="theme-color" content="#0F0F1E" />
+  <title>ياللي 🔥 | لعبة الشلة</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'bg-deep': '#0F0F1E',
+            'bg-mid': '#1A1A2E',
+            'gold':   '#FFD700',
+            'red-warm': '#E94560',
+            'success': '#00D9A3',
+            'muted':  '#8B8B9F',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-stage">
+  <div class="stars"></div>
+
+  <main class="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-8">
+
+    <!-- Logo -->
+    <div class="text-center mb-8 fade-in">
+      <h1 class="logo-yalli">ياللي</h1>
+      <p class="mt-2 text-lg sm:text-2xl text-muted font-bold">
+        🔥 مين فيكم...؟ &nbsp;·&nbsp; لعبة الشلة
+      </p>
+    </div>
+
+    <!-- Card with two main actions -->
+    <div class="glass w-full max-w-md p-6 sm:p-8 card-pop">
+      <div id="home-screen" class="space-y-4">
+        <button id="btn-create" class="btn-neon btn-wobble w-full">
+          <span>👑</span>
+          <span>أنشئ غرفة</span>
+        </button>
+
+        <div class="flex items-center gap-3 my-4">
+          <div class="flex-1 h-px bg-gold/20"></div>
+          <span class="text-muted text-sm font-bold">أو</span>
+          <div class="flex-1 h-px bg-gold/20"></div>
+        </div>
+
+        <button id="btn-join-toggle" class="btn-neon btn-neon-red btn-wobble w-full">
+          <span>⚡</span>
+          <span>دخول لغرفة</span>
+        </button>
+      </div>
+
+      <!-- Join form -->
+      <div id="join-screen" class="space-y-4 hidden">
+        <h2 class="text-2xl font-black text-center neon-gold">دخول لغرفة</h2>
+
+        <div>
+          <label class="block text-sm font-bold mb-2 text-muted">كود الغرفة</label>
+          <input
+            id="input-code"
+            type="text"
+            maxlength="6"
+            placeholder="ABC123"
+            class="input-glow text-center tracking-[0.3em] font-en uppercase"
+            autocomplete="off"
+            inputmode="latin"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold mb-2 text-muted">اسمك</label>
+          <input
+            id="input-name"
+            type="text"
+            maxlength="14"
+            placeholder="مثلاً: أبو فهد"
+            class="input-glow text-center"
+            autocomplete="off"
+          />
+        </div>
+
+        <button id="btn-join-go" class="btn-neon w-full">
+          <span>يا الله يا شباب!</span>
+          <span>🚀</span>
+        </button>
+
+        <button id="btn-join-back" class="btn-ghost w-full">
+          <span>رجوع</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-10 text-center text-muted text-sm">
+      <p>صُنعت بـ ❤️ لشلة المحترش</p>
+    </footer>
+  </main>
+
+  <!-- Toasts container -->
+  <div id="toast-host"></div>
+
+  <script type="module" src="js/game-logic.js"></script>
+  <script type="module">
+    import { generateRoomCode, normalizeCode, showToast } from './js/game-logic.js';
+
+    const $ = (id) => document.getElementById(id);
+
+    const homeScreen = $('home-screen');
+    const joinScreen = $('join-screen');
+    const inputCode  = $('input-code');
+    const inputName  = $('input-name');
+
+    // التبديل بين الشاشتين
+    $('btn-join-toggle').addEventListener('click', () => {
+      homeScreen.classList.add('hidden');
+      joinScreen.classList.remove('hidden');
+      joinScreen.classList.add('card-pop');
+      inputCode.focus();
+    });
+
+    $('btn-join-back').addEventListener('click', () => {
+      joinScreen.classList.add('hidden');
+      homeScreen.classList.remove('hidden');
+    });
+
+    // إنشاء غرفة جديدة
+    $('btn-create').addEventListener('click', () => {
+      const code = generateRoomCode();
+      // الهوست يدخل بدون اسم لأنه فقط مدير. ممكن يطلب الاسم في host.html إذا رغب يلعب.
+      window.location.href = `host.html?room=${code}`;
+    });
+
+    // دخول لاعب
+    $('btn-join-go').addEventListener('click', joinRoom);
+    inputCode.addEventListener('keyup', (e) => { if (e.key === 'Enter') inputName.focus(); });
+    inputName.addEventListener('keyup', (e) => { if (e.key === 'Enter') joinRoom(); });
+
+    // تنظيف الكود تلقائي - uppercase + ascii فقط
+    inputCode.addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    });
+
+    function joinRoom() {
+      const code = normalizeCode(inputCode.value);
+      const name = inputName.value.trim();
+
+      if (code.length !== 6) {
+        showToast('الكود لازم يكون 6 أحرف يا بطل', 'error');
+        inputCode.focus();
+        return;
+      }
+      if (name.length < 2) {
+        showToast('اكتب اسمك علشان نعرفك', 'error');
+        inputName.focus();
+        return;
+      }
+
+      const params = new URLSearchParams({ room: code, name });
+      window.location.href = `player.html?${params.toString()}`;
+    }
+  </script>
+</body>
+</html>
