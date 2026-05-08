@@ -19,7 +19,7 @@ export const firebaseConfig = {
 
 // مفتاح Giphy (مجاني - https://developers.giphy.com)
 // لو ما عبّيته، اللعبة تشتغل عادي بس ما راح يطلع GIF.
-export const GIPHY_API_KEY = "REPLACE_ME_GIPHY_KEY";
+export const GIPHY_API_KEY = "hXJXZSgVi6150aWY3OKDkgQsE4Hq4JkE";
 
 // App Check reCAPTCHA v3 site key (اختياري لكن منصوح به).
 // اتركه فاضي إذا ما تبي تفعّل App Check حالياً.

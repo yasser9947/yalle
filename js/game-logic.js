@@ -131,7 +131,7 @@ export async function joinRoomAsPlayer(code, uid, name) {
   }
   const room = snap.val();
   if (room.state === STATES.FINISHED) {
-    throw new Error('اللعبة خلصت يا بطل');
+    throw new Error('اللعبة خلصت يا شيخ');
   }
 
   // أضف اللاعب
@@ -207,7 +207,7 @@ export async function startNextRound(code) {
 export async function castVote(code, voterUid, votedForUid) {
   const { db } = initFirebase();
   if (voterUid === votedForUid) {
-    throw new Error('ما تقدر تصوّت لنفسك يا حلو');
+    throw new Error('ما تقدر تصوّت لنفسك يا شيخ');
   }
   await update(ref(db, `rooms/${code}/currentRound/votes`), {
     [voterUid]: votedForUid,
@@ -309,15 +309,16 @@ export function escapeHtml(s) {
 // 7) رسائل عشوائية مضحكة لشاشات الانتظار
 // =====================================================
 const WAITING_MESSAGES = [
-  'يبيلها صبر... شكلها فلان لسا يفكر 🤔',
-  'حسبتوا اللعبة سهلة؟ خذوا وقتكم 😂',
-  'اللي يخلص بسرعة، عليه القهوة ☕',
-  'يا الله يا شباب! ما عندنا وقت 🔥',
-  'تخيل واحد يعصب من سؤالك 💀',
-  'فكّر في أحرج موقف صار لكم...',
-  'الفايز اللي عنده أجرأ سؤال 👑',
-  'لا تكتبون شي يحرج أمكم ⚡',
-  'المحترش تكفي من السوالف 🌵',
+  'يبيلها صبر... شكل فلان لسا يفكّر',
+  'حسبتوها سهلة؟ خذوا وقتكم',
+  'اللي يخلّص بمرجلة، عليه القهوة',
+  'يا شيخ ما عندنا وقت',
+  'فكّر في أحرج موقف صار لكم',
+  'الفايز اللي عنده أجرأ سؤال',
+  'لا تكتبون شي يحرج أمكم',
+  'المحترش تكفي من السوالف',
+  'خل المرجلة فيك واكتب',
+  'الشلة كلها تنتظرك',
 ];
 
 export function randomWaitingMessage() {
@@ -325,11 +326,13 @@ export function randomWaitingMessage() {
 }
 
 const WINNER_TAGLINES = [
-  'الفايز هو... 👑',
-  'صاحب الموقف! 🔥',
-  'ولد الزين! ⚡',
-  'يا حلاوة! 🏆',
-  'فكوا حظكم 😂',
+  'الفايز هو',
+  'صاحب الموقف',
+  'بمرجلة',
+  'يا حلاوة',
+  'ولد الزين',
+  'فكّوا حظكم',
+  'هذا الرجّال',
 ];
 
 export function randomWinnerTagline() {

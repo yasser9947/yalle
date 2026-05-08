@@ -59,7 +59,7 @@ let lastWinnerUid = null;
 async function startHosting() {
   const name = $('host-name-input').value.trim();
   if (name.length < 2) {
-    showToast('اكتب اسمك يا حلو', 'error');
+    showToast('اكتب اسمك يا شيخ', 'error');
     return;
   }
 
@@ -72,7 +72,7 @@ async function startHosting() {
     console.error(err);
     showToast('فشل إنشاء الغرفة - حاول مرة ثانية', 'error');
     $('host-name-go').disabled = false;
-    $('host-name-go').innerHTML = 'يا الله 🚀';
+    $('host-name-go').innerHTML = 'دخول';
     return;
   }
 
@@ -112,9 +112,9 @@ function setupLobbyUI() {
   $('btn-copy-code').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(roomCode);
-      showToast('انتسخ الكود! ✅', 'success');
+      showToast('انتسخ الكود', 'success');
     } catch {
-      showToast('ما قدرت أنسخه - انسخه يدوياً', 'error');
+      showToast('ما قدرت أنسخه — انسخه يدوياً', 'error');
     }
   });
 
@@ -187,12 +187,12 @@ function renderLobby(room) {
   list.innerHTML = players.length
     ? players.map((p, i) => `
         <div class="slide-in-right flex items-center gap-3 p-3 glass rounded-xl" style="animation-delay:${i*60}ms">
-          <span class="text-2xl">${p.isHost ? '👑' : '🔥'}</span>
+          <span class="status-dot ${p.isHost ? 'host' : 'done'}"></span>
           <span class="font-bold flex-1">${escapeHtml(p.name)}</span>
           ${p.isHost ? '<span class="text-xs text-muted">(الهوست)</span>' : ''}
         </div>
       `).join('')
-    : '<p class="text-center text-muted py-12">يبيلهم يدخلون... 🔥</p>';
+    : '<p class="text-center text-muted py-12">يبيلهم يدخلون...</p>';
 
   $('btn-start-game').disabled = players.length < 2;
 }
@@ -210,8 +210,8 @@ function renderWriting(room) {
   $('writing-progress').style.width = total ? `${(done/total)*100}%` : '0%';
 
   $('writing-players').innerHTML = players.map((p) => `
-    <div class="flex items-center gap-2 p-3 glass rounded-xl">
-      <span class="text-xl">${p.finishedWriting ? '✅' : '⏳'}</span>
+    <div class="flex items-center gap-3 p-3 glass rounded-xl">
+      <span class="status-dot ${p.finishedWriting ? 'done' : ''}"></span>
       <span class="font-bold flex-1 truncate">${escapeHtml(p.name)}</span>
     </div>
   `).join('');
@@ -237,7 +237,7 @@ async function startVotingRound() {
     const result = await startNextRound(roomCode);
     if (!result) {
       // ما في أسئلة - أنهِ اللعبة
-      showToast('خلصت كل الأسئلة!', 'success');
+      showToast('خلّصت كل الأسئلة', 'success');
       await finishGame(roomCode);
     }
   } catch (err) {
@@ -266,8 +266,8 @@ function renderVoting(room) {
   $('voting-progress').style.width = total ? `${(voted/total)*100}%` : '0%';
 
   $('voting-players-status').innerHTML = players.map((p) => `
-    <div class="flex items-center gap-2 p-3 glass rounded-xl">
-      <span class="text-xl">${votes[p.uid] ? '🗳️' : '⏳'}</span>
+    <div class="flex items-center gap-3 p-3 glass rounded-xl">
+      <span class="status-dot ${votes[p.uid] ? 'done' : ''}"></span>
       <span class="font-bold flex-1 truncate">${escapeHtml(p.name)}</span>
     </div>
   `).join('');
@@ -299,16 +299,16 @@ async function renderResults(room) {
   const tally = round.tally || {};
 
   $('results-tagline').textContent = randomWinnerTagline();
-  $('winner-name').textContent = winner ? winner.name : 'ما حد فاز 🤷';
+  $('winner-name').textContent = winner ? winner.name : 'ما حد فاز';
   $('winner-votes').textContent = winnerUid ? (tally[winnerUid] || 0) : 0;
 
   // mini board (مرتب)
   const sorted = [...players].sort((a, b) => b.score - a.score);
   $('mini-board').innerHTML = sorted.map((p, i) => `
     <div class="flex items-center gap-3 p-3 glass rounded-xl">
-      <span class="text-xl">${rankEmoji(i)}</span>
+      <span class="rank-pill rank-${i+1}">${arabicDigit(i+1)}</span>
       <span class="font-bold flex-1 text-right">${escapeHtml(p.name)}</span>
-      <span class="score-badge">${p.score} 🏆</span>
+      <span class="score-badge">${p.score}</span>
     </div>
   `).join('');
 
@@ -316,7 +316,7 @@ async function renderResults(room) {
   const remainingQs = await countUnusedQuestions(room);
   if (remainingQs === 0) {
     $('btn-next-q').classList.add('hidden');
-    $('btn-end-game').textContent = 'الفايز النهائي 🏆';
+    $('btn-end-game').textContent = 'الفايز النهائي';
   } else {
     $('btn-next-q').classList.remove('hidden');
     $('btn-next-q').disabled = false;
@@ -338,7 +338,7 @@ async function renderResults(room) {
     if (gifUrl) {
       $('gif-container').innerHTML = `<img src="${gifUrl}" alt="celebration" class="max-h-72 mx-auto" />`;
     } else {
-      $('gif-container').innerHTML = '<div class="text-7xl">🎉</div>';
+      $('gif-container').innerHTML = '<div class="winner-divider"></div>';
     }
   }
 }
@@ -355,9 +355,9 @@ function renderFinished(room) {
 
   $('final-board').innerHTML = sorted.map((p, i) => `
     <div class="flex items-center gap-3 p-4 glass rounded-xl ${i===0 ? 'glass-red' : ''}">
-      <span class="text-2xl">${rankEmoji(i)}</span>
+      <span class="rank-pill rank-${i+1}">${arabicDigit(i+1)}</span>
       <span class="font-bold flex-1 text-right text-lg">${escapeHtml(p.name)}</span>
-      <span class="score-badge">${p.score} 🏆</span>
+      <span class="score-badge">${p.score}</span>
     </div>
   `).join('');
 
@@ -376,8 +376,9 @@ function playersArray(room) {
   return Object.entries(obj).map(([uid, p]) => ({ uid, ...p }));
 }
 
-function rankEmoji(i) {
-  return ['🥇','🥈','🥉'][i] || '🎖️';
+// أرقام عربية - بدل إيموجيز الميداليات
+function arabicDigit(n) {
+  return String(n).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[+d]);
 }
 
 async function countUnusedQuestions(room) {

@@ -68,7 +68,7 @@ function setupHandlers() {
   $('btn-submit-q').addEventListener('click', async () => {
     const text = qInput.value.trim();
     if (text.length < 5) {
-      showToast('السؤال قصير جداً يا حلو', 'error');
+      showToast('السؤال قصير، طوّله شوي يا شيخ', 'error');
       return;
     }
     $('btn-submit-q').disabled = true;
@@ -79,7 +79,7 @@ function setupHandlers() {
       charCount.textContent = '0';
       $('written-state').classList.remove('hidden');
       $('btn-finished-writing').disabled = false;
-      showToast('انكتب! 🔥', 'success');
+      showToast('انكتب السؤال', 'success');
     } catch (err) {
       console.error(err);
       showToast('فشل إرسال السؤال', 'error');
@@ -97,7 +97,7 @@ function setupHandlers() {
     try {
       await markFinishedWriting(roomCode, myUid, true);
       $('waiting-others').classList.remove('hidden');
-      $('btn-finished-writing').innerHTML = '<span>خلّصت ✅</span>';
+      $('btn-finished-writing').innerHTML = '<span>خلّصت</span>';
     } catch (err) {
       console.error(err);
       showToast('فشل التأكيد', 'error');
@@ -135,7 +135,7 @@ function renderRoom(room) {
 
   // عرض النقاط
   const myScore = room.players?.[myUid]?.score || 0;
-  $('my-score-pill').textContent = `${myScore} 🏆`;
+  $('my-score-pill').textContent = arabicDigit(myScore);
 
   if (state !== lastState) {
     ['lobby','writing','voting','results','finished'].forEach((s) => {
@@ -150,7 +150,7 @@ function renderRoom(room) {
       $('written-state').classList.add('hidden');
       $('waiting-others').classList.add('hidden');
       $('btn-finished-writing').disabled = true;
-      $('btn-finished-writing').innerHTML = '<span>خلّصت والله!</span><span>🔥</span>';
+      $('btn-finished-writing').innerHTML = '<span>خلّصت</span>';
     }
 
     if (state === STATES.VOTING) {
@@ -177,7 +177,7 @@ function renderLobby(room) {
   const players = playersArray(room);
   $('lobby-players').innerHTML = players.map((p) => `
     <span class="px-3 py-1 rounded-full bg-gold/10 border border-gold/30 text-sm font-bold ${p.uid===myUid ? 'neon-gold' : ''}">
-      ${p.isHost ? '👑 ' : ''}${escapeHtml(p.name)}
+      ${escapeHtml(p.name)}${p.isHost ? ' · هوست' : ''}
     </span>
   `).join('');
 }
@@ -204,7 +204,7 @@ function renderVoting(room) {
         class="player-chip w-full ${isSelected ? 'selected' : ''}"
         ${isMe || myVote || voteInFlight ? 'disabled' : ''}
       >
-        ${isMe ? '🙋 ' : '🔥 '}${escapeHtml(p.name)}${isMe ? ' (أنت)' : ''}
+        ${escapeHtml(p.name)}${isMe ? ' · أنت' : ''}
       </button>
     `;
   }).join('');
@@ -253,7 +253,7 @@ async function renderResults(room) {
   const tally = round.tally || {};
 
   $('player-results-tagline').textContent = randomWinnerTagline();
-  $('player-winner-name').textContent = winner ? winner.name : 'ما حد فاز 🤷';
+  $('player-winner-name').textContent = winner ? winner.name : 'ما حد فاز';
   $('player-winner-votes').textContent = winnerUid ? (tally[winnerUid] || 0) : 0;
 
   // إذا أنا الفايز - confetti
@@ -271,7 +271,7 @@ async function renderResults(room) {
     if (gifUrl) {
       $('player-gif').innerHTML = `<img src="${gifUrl}" alt="celebration" class="max-h-56 mx-auto" />`;
     } else {
-      $('player-gif').innerHTML = '<div class="text-6xl">🎉</div>';
+      $('player-gif').innerHTML = '<div class="winner-divider"></div>';
     }
   }
 }
@@ -288,9 +288,9 @@ function renderFinished(room) {
 
   $('player-board').innerHTML = sorted.map((p, i) => `
     <div class="flex items-center gap-3 p-3 glass rounded-xl ${p.uid===myUid ? 'glass-red' : ''}">
-      <span class="text-xl">${rankEmoji(i)}</span>
-      <span class="font-bold flex-1 text-right">${escapeHtml(p.name)}${p.uid===myUid ? ' (أنت)' : ''}</span>
-      <span class="score-badge">${p.score} 🏆</span>
+      <span class="rank-pill rank-${i+1}">${arabicDigit(i+1)}</span>
+      <span class="font-bold flex-1 text-right">${escapeHtml(p.name)}${p.uid===myUid ? ' · أنت' : ''}</span>
+      <span class="score-badge">${p.score}</span>
     </div>
   `).join('');
 
@@ -316,6 +316,6 @@ function playersArray(room) {
   return Object.entries(obj).map(([uid, p]) => ({ uid, ...p }));
 }
 
-function rankEmoji(i) {
-  return ['🥇','🥈','🥉'][i] || '🎖️';
+function arabicDigit(n) {
+  return String(n).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[+d]);
 }

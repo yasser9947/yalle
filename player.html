@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0F0F1E" />
-  <title>ياللي · لاعب 🔥</title>
+  <title>ياللي · لاعب</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,122 +20,109 @@
 
   <main class="relative z-10 min-h-screen px-4 py-6">
     <header class="max-w-md mx-auto flex items-center justify-between mb-6">
-      <a href="index.html" class="text-xl font-black neon-gold">ياللي 🔥</a>
+      <a href="index.html" class="text-xl font-black neon-gold">ياللي</a>
       <div class="flex items-center gap-2">
         <span id="my-name-pill" class="score-badge">…</span>
-        <span id="my-score-pill" class="score-badge">0 🏆</span>
+        <span id="my-score-pill" class="score-badge">٠</span>
       </div>
     </header>
 
     <div class="max-w-md mx-auto">
 
-      <!-- ============================================
-           1) Lobby - انتظار بدء اللعبة
-           ============================================ -->
+      <!-- 1) Lobby -->
       <section id="screen-lobby" class="hidden">
         <div class="glass p-6 sm:p-8 text-center card-pop">
-          <div class="text-6xl mb-4">⏳</div>
-          <h2 class="text-2xl font-black mb-2 neon-gold">أهلاً <span id="lobby-greet">يا بطل</span>!</h2>
-          <p class="text-muted mb-4">انتظر الهوست يبدأ اللعبة</p>
+          <h2 class="text-2xl font-black mb-2 neon-gold">أهلاً <span id="lobby-greet">يا شيخ</span></h2>
+          <p class="text-muted mb-6">انتظر الهوست يبدأ اللعبة</p>
 
-          <div class="text-sm text-muted mb-2">الكود</div>
+          <div class="text-sm text-muted mb-2 tracking-widest">الكود</div>
           <div class="text-3xl font-black neon-gold tracking-widest font-en mb-6" id="lobby-code">------</div>
 
-          <div class="text-xs text-muted">الشلة الموجودة:</div>
+          <div class="text-xs text-muted tracking-widest">الشلة الموجودة</div>
           <div id="lobby-players" class="flex flex-wrap gap-2 justify-center mt-3"></div>
         </div>
       </section>
 
-      <!-- ============================================
-           2) Writing - كتابة سؤال
-           ============================================ -->
+      <!-- 2) Writing -->
       <section id="screen-writing" class="hidden">
         <div class="glass p-6 sm:p-8 card-pop">
-          <h2 class="text-2xl font-black text-center mb-2 neon-gold">اكتب سؤالك 🔥</h2>
-          <p class="text-center text-muted text-sm mb-6">"مين فيكم...؟" - شي يضحك أو يحرج 😂</p>
+          <h2 class="text-2xl font-black text-center mb-2 neon-gold">اكتب سؤالك</h2>
+          <p class="text-center text-muted text-sm mb-6">"مين فيكم...؟" — شي يضحك أو يحرج</p>
 
           <textarea id="question-input" maxlength="200" placeholder="مثلاً: مين فيكم ينام في المحاضرة؟" class="input-glow mb-2"></textarea>
           <div class="flex justify-between text-xs text-muted mb-4">
-            <span>سؤال واحد بس</span>
+            <span>تقدر تكتب أكثر من سؤال</span>
             <span><span id="char-count">0</span>/200</span>
           </div>
 
           <button id="btn-submit-q" class="btn-neon w-full mb-3">
-            <span>اكتب السؤال</span>
-            <span>✍️</span>
+            <span>أرسل السؤال</span>
           </button>
 
           <div id="written-state" class="hidden text-center p-4 glass rounded-xl mb-3">
-            <div class="text-3xl mb-2">✅</div>
-            <p class="font-bold text-success">سؤالك انكتب!</p>
-            <p class="text-xs text-muted mt-1">تقدر تكتب أكثر من سؤال إذا تبي</p>
+            <p class="font-bold text-success">انكتب السؤال</p>
+            <p class="text-xs text-muted mt-1">تقدر تكتب غيره</p>
           </div>
 
           <button id="btn-finished-writing" class="btn-neon btn-neon-red w-full" disabled>
-            <span>خلّصت والله!</span>
-            <span>🔥</span>
+            <span>خلّصت</span>
           </button>
 
           <p id="waiting-others" class="text-xs text-center text-muted mt-3 hidden">
-            انتظر الباقي يخلصون...
+            انتظر الباقي يخلّصون
           </p>
         </div>
       </section>
 
-      <!-- ============================================
-           3) Voting - تصويت
-           ============================================ -->
+      <!-- 3) Voting -->
       <section id="screen-voting" class="hidden">
         <div class="glass p-6 sm:p-8 card-pop">
-          <p class="text-center text-muted font-bold mb-2">السؤال 🤔</p>
+          <p class="text-center text-muted font-bold mb-2 tracking-widest text-sm">السؤال</p>
           <h2 id="voting-question" class="text-2xl sm:text-3xl font-black text-center mb-6 neon-gold leading-tight">…</h2>
 
-          <p class="text-center text-muted text-sm mb-4">وش رايكم؟ صوّت 👇</p>
+          <p class="text-center text-muted text-sm mb-4">وش رايكم؟ صوّت بمرجلة</p>
 
           <div id="vote-buttons" class="space-y-3"></div>
 
           <div id="voted-state" class="hidden mt-4 p-4 glass rounded-xl text-center">
-            <p class="font-bold text-success">صوّت! ✅</p>
+            <p class="font-bold text-success">تم التصويت</p>
             <p class="text-xs text-muted mt-1">انتظر الباقي يصوّتون</p>
           </div>
         </div>
       </section>
 
-      <!-- ============================================
-           4) Results - عرض الفايز
-           ============================================ -->
+      <!-- 4) Results -->
       <section id="screen-results" class="hidden">
         <div class="glass glass-red p-6 sm:p-8 card-pop text-center">
-          <p class="text-muted font-bold mb-2" id="player-results-tagline">الفايز هو...</p>
-          <div class="text-7xl winner-crown mb-4">👑</div>
-          <h2 id="player-winner-name" class="text-3xl sm:text-4xl font-black neon-gold mb-2">…</h2>
+          <p class="text-muted font-bold mb-3 tracking-widest text-sm" id="player-results-tagline">الفايز هو</p>
+          <div class="winner-divider mb-4"></div>
+          <h2 id="player-winner-name" class="text-4xl sm:text-5xl font-black neon-gold mb-3 leading-tight">…</h2>
+          <div class="winner-divider mb-6"></div>
           <p class="text-muted mb-6"><span id="player-winner-votes">0</span> صوّتوا له</p>
 
           <div id="player-gif" class="rounded-2xl overflow-hidden mb-4 inline-block max-w-full"></div>
 
-          <p class="text-sm text-muted mt-4">الهوست راح يبدأ الجولة اللي بعدها...</p>
+          <p class="text-sm text-muted mt-4">الهوست راح يبدأ الجولة الجاية</p>
         </div>
       </section>
 
-      <!-- ============================================
-           5) Finished - الفايز النهائي
-           ============================================ -->
+      <!-- 5) Finished -->
       <section id="screen-finished" class="hidden">
         <div class="glass p-6 sm:p-8 card-pop text-center">
-          <div class="text-7xl mb-4">🏆</div>
-          <p class="text-muted font-bold mb-2">شامبيون اللعبة</p>
-          <h2 id="player-champion" class="text-4xl font-black neon-gold mb-6">…</h2>
+          <p class="text-muted font-bold mb-3 tracking-widest">شامبيون المرجلة</p>
+          <div class="winner-divider mb-4"></div>
+          <h2 id="player-champion" class="text-4xl font-black neon-gold mb-3 leading-tight">…</h2>
+          <div class="winner-divider mb-6"></div>
 
           <div id="player-board" class="space-y-2 mb-6"></div>
 
-          <a href="index.html" class="btn-neon block">لعبة جديدة 🔥</a>
+          <a href="index.html" class="btn-neon block">لعبة جديدة</a>
         </div>
       </section>
 
       <!-- شاشة الخطأ -->
       <section id="screen-error" class="hidden">
         <div class="glass glass-red p-6 sm:p-8 card-pop text-center">
-          <div class="text-6xl mb-4">😬</div>
           <h2 id="error-msg" class="text-xl font-black text-red-warm mb-4">…</h2>
           <a href="index.html" class="btn-neon block">رجوع</a>
         </div>

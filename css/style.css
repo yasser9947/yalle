@@ -376,14 +376,67 @@ textarea.input-glow {
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
 }
 
-/* Winner crown */
-.winner-crown {
-  display: inline-block;
-  animation: crown-bounce 0.8s ease infinite alternate;
+/* Winner divider - خط ذهبي رفيع يعوّض عن الإيموجي الكبير */
+.winner-divider {
+  height: 2px;
+  width: 60%;
+  margin-inline: auto;
+  background: linear-gradient(90deg, transparent, var(--gold), var(--red), var(--gold), transparent);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+  animation: divider-glow 2.5s ease-in-out infinite alternate;
 }
-@keyframes crown-bounce {
-  from { transform: translateY(0) rotate(-5deg); }
-  to   { transform: translateY(-6px) rotate(5deg); }
+@keyframes divider-glow {
+  from { opacity: 0.7; box-shadow: 0 0 12px rgba(255, 215, 0, 0.4); }
+  to   { opacity: 1;   box-shadow: 0 0 30px rgba(255, 215, 0, 0.8); }
+}
+
+/* Rank pill - يعوّض عن إيموجيز 🥇🥈🥉 */
+.rank-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 1rem;
+  font-family: 'Tajawal', sans-serif;
+  background: rgba(234, 234, 234, 0.08);
+  border: 1px solid rgba(234, 234, 234, 0.2);
+  color: var(--text);
+}
+.rank-pill.rank-1 {
+  background: rgba(255, 215, 0, 0.18);
+  border-color: rgba(255, 215, 0, 0.55);
+  color: var(--gold);
+  box-shadow: 0 0 14px rgba(255, 215, 0, 0.4);
+}
+.rank-pill.rank-2 {
+  background: rgba(234, 234, 234, 0.12);
+  border-color: rgba(234, 234, 234, 0.45);
+}
+.rank-pill.rank-3 {
+  background: rgba(233, 69, 96, 0.15);
+  border-color: rgba(233, 69, 96, 0.4);
+  color: var(--red);
+}
+
+/* Status dot - بدل إيموجيز ✅⏳ */
+.status-dot {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.status-dot.done {
+  background: var(--success);
+  box-shadow: 0 0 10px rgba(0, 217, 163, 0.6);
+}
+.status-dot.host {
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
 }
 
 /* Hidden helper */
