@@ -146,9 +146,91 @@
 
     <!-- Footer -->
     <footer class="mt-10 text-center text-muted text-sm">
-      <p>صُنعت لشلة المحترش</p>
+      <p>صُنعت بحب <span class="heart">❤</span></p>
+      <button id="btn-how-to-play" type="button" class="btn-howto">كيف تلعب؟</button>
     </footer>
   </main>
+
+  <!-- Modal: كيف تلعب -->
+  <div id="how-to-play" class="modal-overlay hidden">
+    <div class="modal-card glass p-6 sm:p-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-2xl sm:text-3xl font-black neon-gold">كيف تلعب ياللي</h2>
+        <button id="btn-close-how" type="button" class="btn-ghost py-1 px-3 text-sm">إغلاق</button>
+      </div>
+
+      <p class="text-center text-muted mb-6 leading-relaxed">
+        لعبة جماعية، السؤال فيها واحد:<br>
+        <span class="neon-gold font-black text-lg">"مين فيكم...؟"</span>
+      </p>
+
+      <div class="space-y-3">
+        <div class="step-item">
+          <div class="step-num">١</div>
+          <div>
+            <p class="font-bold mb-1">الهوست ينشئ الغرفة</p>
+            <p class="text-sm text-muted leading-relaxed">يختار ثيم (شبابية / بنات / عائلية) ويطلع كود ٦ أحرف + QR. يقدر يشاركه في الواتس بضغطة زر.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">٢</div>
+          <div>
+            <p class="font-bold mb-1">الشلة يدخلون</p>
+            <p class="text-sm text-muted leading-relaxed">يضغطون رابط الواتس → الكود معبّى → يكتبون اسمهم بس. أو يفتحون الموقع ويكتبون الكود.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">٣</div>
+          <div>
+            <p class="font-bold mb-1">كتابة الأسئلة</p>
+            <p class="text-sm text-muted leading-relaxed">كل لاعب يكتب أسئلة "مين فيكم...؟" — حد أقصى ٣ أسئلة لكل واحد. لما يخلص يضغط "خلّصت".</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">٤</div>
+          <div>
+            <p class="font-bold mb-1">التصويت</p>
+            <p class="text-sm text-muted leading-relaxed">سؤال عشوائي يطلع للكل (بدون كشف صاحبه). كل واحد يصوّت على لاعب — ما يقدر يصوّت لنفسه.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">٥</div>
+          <div>
+            <p class="font-bold mb-1">النتيجة</p>
+            <p class="text-sm text-muted leading-relaxed">اللي يجمع أكثر أصوات ياخذ نقطة + GIF احتفالي. لو في تعادل، كل المتعادلين ياخذون نقطة.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">٦</div>
+          <div>
+            <p class="font-bold mb-1">الجولة الجاية</p>
+            <p class="text-sm text-muted leading-relaxed">الهوست يضغط "السؤال اللي بعده" — تكمل لين تخلّص كل الأسئلة.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">٧</div>
+          <div>
+            <p class="font-bold mb-1">الشامبيون</p>
+            <p class="text-sm text-muted leading-relaxed">آخر شاشة تعرض الترتيب. اللي عنده أعلى نقاط = شامبيون الجلسة.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 p-3 rounded-xl border border-gold/15 bg-gold/5 text-center">
+        <p class="text-xs text-muted leading-relaxed">
+          ملاحظة: لو طلعت بنص اللعبة ورجعت بنفس الجوال، نقاطك محفوظة.
+        </p>
+      </div>
+
+      <button id="btn-close-how-bottom" type="button" class="btn-neon w-full mt-6">يلا نلعب</button>
+    </div>
+  </div>
 
   <!-- Toasts container -->
   <div id="toast-host"></div>
@@ -228,6 +310,20 @@
       showPageTransition('يدخل الغرفة...');
       window.location.href = `player.html?${params.toString()}`;
     }
+
+    // Modal: كيف تلعب
+    const howModal = $('how-to-play');
+    const openHow = () => howModal.classList.remove('hidden');
+    const closeHow = () => howModal.classList.add('hidden');
+    $('btn-how-to-play').addEventListener('click', openHow);
+    $('btn-close-how').addEventListener('click', closeHow);
+    $('btn-close-how-bottom').addEventListener('click', closeHow);
+    howModal.addEventListener('click', (e) => {
+      if (e.target === howModal) closeHow();
+    });
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'Escape' && !howModal.classList.contains('hidden')) closeHow();
+    });
   </script>
 </body>
 </html>
