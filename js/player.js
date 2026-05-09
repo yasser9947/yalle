@@ -82,9 +82,13 @@ function setupHandlers() {
   });
 
   $('btn-submit-q').addEventListener('click', async (e) => {
+    if (mySubmittedCount >= 3) {
+      showToast('وصلت الحد الأقصى — ٣ أسئلة بس', 'error');
+      return;
+    }
     const text = qInput.value.trim();
     if (text.length < 5) {
-      showToast(`السؤال قصير، طوّله شوي ${themeGreeting(currentTheme)}`, 'error');
+      showToast(`السؤال قصير، طوّله شوي ${themeGreeting(currentTheme)}`.trim(), 'error');
       return;
     }
     try {
@@ -92,9 +96,15 @@ function setupHandlers() {
       mySubmittedCount++;
       qInput.value = '';
       charCount.textContent = '0';
+      $('player-q-count').textContent = arabicDigit(mySubmittedCount);
       $('written-state').classList.remove('hidden');
       $('btn-finished-writing').disabled = false;
-      showToast('انكتب السؤال', 'success');
+      showToast('تم إرسال السؤال', 'success');
+      // وصل للحد الأقصى → عطّل الإرسال
+      if (mySubmittedCount >= 3) {
+        $('btn-submit-q').disabled = true;
+        $('btn-submit-q').innerHTML = '<span>وصلت الحد ٣</span>';
+      }
     } catch (err) {
       console.error(err);
       showToast('فشل إرسال السؤال', 'error');
@@ -170,6 +180,13 @@ function renderRoom(room) {
       $('waiting-others').classList.add('hidden');
       $('btn-finished-writing').disabled = true;
       $('btn-finished-writing').innerHTML = '<span>خلّصت</span>';
+      const pq = document.getElementById('player-q-count');
+      if (pq) pq.textContent = '٠';
+      const sb = $('btn-submit-q');
+      if (sb) {
+        sb.disabled = false;
+        sb.innerHTML = '<span>أرسل السؤال</span>';
+      }
     }
 
     if (state === STATES.VOTING) {

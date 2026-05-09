@@ -93,7 +93,7 @@ let cleanupScheduled = false;     // علم إن الـ onDisconnect cleanup ا�
 async function startHosting() {
   const name = $('host-name-input').value.trim();
   if (name.length < 2) {
-    showToast(`اكتب اسمك ${themeGreeting(selectedTheme)}`, 'error');
+    showToast(`اكتب اسمك ${themeGreeting(selectedTheme)}`.trim(), 'error');
     return;
   }
 
@@ -147,6 +147,14 @@ function setupLobbyUI() {
     }
   });
 
+  // مشاركة في واتساب
+  $('btn-share-wa').addEventListener('click', () => {
+    const shareUrl = new URL(`./?room=${roomCode}`, location.href).href;
+    const text = `تعال العب ياللي معنا!\nكود الغرفة: ${roomCode}\n${shareUrl}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(waUrl, '_blank');
+  });
+
   $('btn-start-game').addEventListener('click', async (e) => {
     try {
       await withButtonLoading(e.currentTarget, () => setRoomState(roomCode, STATES.WRITING));
@@ -188,9 +196,13 @@ function setupHostWritingHandlers() {
   });
 
   $('btn-host-submit-q').addEventListener('click', async (e) => {
+    if (myQuestionsCount >= 3) {
+      showToast('وصلت الحد الأقصى — ٣ أسئلة بس', 'error');
+      return;
+    }
     const text = qInput.value.trim();
     if (text.length < 5) {
-      showToast(`السؤال قصير، طوّله شوي ${themeGreeting(selectedTheme)}`, 'error');
+      showToast(`السؤال قصير، طوّله شوي ${themeGreeting(selectedTheme)}`.trim(), 'error');
       return;
     }
     try {
@@ -198,9 +210,15 @@ function setupHostWritingHandlers() {
       myQuestionsCount++;
       qInput.value = '';
       charCount.textContent = '0';
+      $('host-q-count').textContent = arabicDigit(myQuestionsCount);
       $('host-written-state').classList.remove('hidden');
       $('btn-host-finished-writing').disabled = false;
-      showToast('انكتب السؤال', 'success');
+      showToast('تم إرسال السؤال', 'success');
+      // وصل للحد الأقصى → عطّل الإرسال
+      if (myQuestionsCount >= 3) {
+        $('btn-host-submit-q').disabled = true;
+        $('btn-host-submit-q').innerHTML = '<span>وصلت الحد ٣</span>';
+      }
     } catch (err) {
       console.error(err);
       showToast('فشل إرسال السؤال', 'error');
@@ -276,7 +294,10 @@ function renderRoom(room) {
       fwBtn.innerHTML = '<span>خلّصت</span>';
       $('host-question-input').value = '';
       $('host-char-count').textContent = '0';
-      $('btn-host-submit-q').disabled = false;
+      $('host-q-count').textContent = '٠';
+      const submitBtn = $('btn-host-submit-q');
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span>أرسل السؤال</span>';
     }
 
     if (state === STATES.VOTING) {

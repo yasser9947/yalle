@@ -92,7 +92,7 @@
           <button type="button" class="theme-chip" data-theme-id="banat">
             <div class="tc-swatch" style="background: linear-gradient(90deg, #FF6FAB, #A855F7)"></div>
             <div class="tc-name">بنات</div>
-            <div class="tc-desc">جلسة الحلوات</div>
+            <div class="tc-desc">للأخوات</div>
           </button>
           <button type="button" class="theme-chip" data-theme-id="family">
             <div class="tc-swatch" style="background: linear-gradient(90deg, #FFA500, #00D9A3)"></div>
@@ -116,7 +116,8 @@
               <button id="btn-copy-code" class="btn-ghost py-2 px-3 text-sm" title="نسخ">نسخ</button>
             </div>
             <div id="qr-container" class="bg-white rounded-xl p-3 inline-block mb-4"></div>
-            <p class="text-sm text-muted">امسح الكود أو اكتبه في <span class="font-en font-bold neon-gold" id="link-domain">الموقع</span></p>
+            <p class="text-sm text-muted mb-4">امسح الكود أو اكتبه في <span class="font-en font-bold neon-gold" id="link-domain">الموقع</span></p>
+            <button id="btn-share-wa" type="button" class="btn-ghost w-full">شارك الرابط في واتساب</button>
           </div>
 
           <div class="glass p-6 sm:p-8 card-pop">
@@ -141,8 +142,8 @@
 
           <!-- Host writing form -->
           <textarea id="host-question-input" maxlength="200" placeholder="مثلاً: مين فيكم ينام في المحاضرة؟" class="input-glow mb-2"></textarea>
-          <div class="flex justify-between text-xs text-muted mb-4">
-            <span>تقدر تكتب أكثر من سؤال</span>
+          <div class="flex items-center justify-between text-xs text-muted mb-4">
+            <span>أسئلتك: <span id="host-q-count">٠</span> من ٣</span>
             <span><span id="host-char-count">0</span>/200</span>
           </div>
 
@@ -151,7 +152,7 @@
           </button>
 
           <div id="host-written-state" class="hidden text-center p-3 glass rounded-xl mb-3">
-            <p class="font-bold text-success">انكتب السؤال</p>
+            <p class="font-bold text-success">تم إرسال السؤال</p>
             <p class="text-xs text-muted mt-1">تقدر تكتب غيره</p>
           </div>
 

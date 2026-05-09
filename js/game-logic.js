@@ -508,30 +508,28 @@ export const THEMES = {
   banat: {
     id: 'banat',
     name: 'بنات',
-    description: 'لشلة الأخوات',
+    description: 'للأخوات',
     primary: '#FF6FAB',
     secondary: '#A855F7',
-    giphyKeywords: ['happy dance', 'cute', 'celebration', 'applause', 'congratulations', 'high five girls'],
+    giphyKeywords: ['happy dance', 'cute animal', 'celebration', 'applause', 'congratulations', 'high five'],
     waitingMessages: [
-      'يلا يا الحلوات',
-      'احرجوا الشوف',
-      'الجوفية بتنتظركم',
+      'الشلة بانتظاركم',
       'فكّروا في موقف يضحّك',
-      'وش رايكم نخلّص بسرعة؟',
-      'اللي تخلّص قبل، عليها قهوة',
-      'الشلة كلها تنتظرك',
-      'يلا، مين أكثر بنت ضحكتنا؟',
+      'وش رأيكم نخلّص بسرعة',
+      'اللي تخلّص أوّل تكسب',
+      'الكل ينتظر',
+      'فكّروا في أحرج موقف صار',
+      'خذوا وقتكم',
+      'الجولة قصيرة، يلا',
     ],
     winnerTaglines: [
       'الفايزة هي',
       'صاحبة الموقف',
-      'يا قلبي',
-      'الحلوة',
-      'ضحكة الشلة',
-      'يا حلاوة',
+      'الفايزة',
+      'بطلة الجولة',
     ],
-    championLabel: 'شامبيونة الجلسة',
-    greeting: 'يا حلوة',
+    championLabel: 'بطلة الجلسة',
+    greeting: '',
   },
 
   family: {
@@ -579,11 +577,15 @@ export function themeGreeting(themeId) {
 }
 
 // تحديث الـ placeholders/labels اللي فيها نداء بناءً على الثيم
+// لو الثيم ما فيه greeting (زي "بنات" الرسمية)، النداء ينحذف ويتنظّف الفراغ
 export function refreshThemeStrings(themeId) {
   const greeting = themeGreeting(themeId);
   document.querySelectorAll('[data-theme-greeting]').forEach((el) => {
     const tmpl = el.dataset.themeGreeting;
-    const value = tmpl.replace('{greeting}', greeting);
+    let value = tmpl.replace('{greeting}', greeting);
+    if (!greeting) {
+      value = value.replace(/\s+/g, ' ').trim();
+    }
     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
       el.placeholder = value;
     } else {

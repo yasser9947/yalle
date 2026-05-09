@@ -170,6 +170,19 @@
     const inputCode  = $('input-code');
     const inputName  = $('input-name');
 
+    // إذا الرابط فيه ?room=XXXXXX → فتحته الناس من واتساب
+    // نوديهم على شاشة الدخول مع الكود معبّى، وفقط يكتبون الاسم
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomFromUrl = urlParams.get('room');
+    if (roomFromUrl && /^[A-Z0-9]{6}$/i.test(roomFromUrl)) {
+      inputCode.value = roomFromUrl.toUpperCase();
+      homeScreen.classList.add('hidden');
+      joinScreen.classList.remove('hidden');
+      joinScreen.classList.add('card-pop');
+      // ركّز على الاسم مباشرة (الكود جاهز)
+      setTimeout(() => inputName.focus(), 100);
+    }
+
     $('btn-join-toggle').addEventListener('click', () => {
       homeScreen.classList.add('hidden');
       joinScreen.classList.remove('hidden');
