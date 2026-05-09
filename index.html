@@ -85,6 +85,11 @@
       <p class="mt-2 text-lg sm:text-2xl text-muted font-bold tracking-wide">
         مين فيكم...؟ &nbsp;·&nbsp; ساحة المرجلة
       </p>
+      <p class="mt-3 text-xs sm:text-sm text-muted">
+        لُعبت <span id="stat-played" class="neon-gold font-black">…</span> مرة
+        <span class="mx-2 opacity-50">·</span>
+        اكتملت <span id="stat-finished" class="neon-gold font-black">…</span>
+      </p>
     </div>
 
     <!-- Card with two main actions -->
@@ -240,12 +245,34 @@
     import {
       generateRoomCode, normalizeCode, showToast,
       hideBootLoader, showPageTransition,
+      watchStats, toArabicDigits, ensureSignedIn,
     } from './js/game-logic.js';
 
     const $ = (id) => document.getElementById(id);
 
     // أخفِ شاشة التحميل لما الصفحة تجهز
     hideBootLoader();
+
+    // عدّاد الجلسات - نوقّع دخول مجهول أولاً لو الـ rules تتطلب auth
+    (async () => {
+      try {
+        await ensureSignedIn();
+        watchStats((s) => {
+          const played = s.gamesPlayed || 0;
+          const finished = s.gamesFinished || 0;
+          const elP = document.getElementById('stat-played');
+          const elF = document.getElementById('stat-finished');
+          if (elP) elP.textContent = toArabicDigits(played);
+          if (elF) elF.textContent = toArabicDigits(finished);
+        });
+      } catch (err) {
+        console.warn('stats listener failed', err);
+        const elP = document.getElementById('stat-played');
+        const elF = document.getElementById('stat-finished');
+        if (elP) elP.textContent = '٠';
+        if (elF) elF.textContent = '٠';
+      }
+    })();
 
     const homeScreen = $('home-screen');
     const joinScreen = $('join-screen');

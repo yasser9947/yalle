@@ -123,6 +123,9 @@ export async function createRoom(code, hostUid, hostName = 'الهوست', theme
 
   // لما الهوست ينقطع: نحدّث online فقط (نحفظ نقاطه إذا رجع)
   onDisconnect(ref(db, `rooms/${code}/players/${hostUid}/online`)).set(false);
+
+  // عدّاد إجمالي الجلسات
+  incrementGamesPlayed().catch((e) => console.warn('stats inc failed', e));
 }
 
 // دخول لاعب لغرفة موجودة - يدعم الرجوع (يحفظ النقاط)
@@ -281,6 +284,33 @@ export async function tallyAndCloseRound(code) {
 // إنهاء اللعبة
 export async function finishGame(code) {
   await setRoomState(code, STATES.FINISHED);
+  // عدّاد الجلسات المكتملة
+  incrementGamesFinished().catch((e) => console.warn('stats inc failed', e));
+}
+
+// =====================================================
+// إحصائيات عامة (stats/gamesPlayed, stats/gamesFinished)
+// =====================================================
+export async function incrementGamesPlayed() {
+  const { db } = initFirebase();
+  return runTransaction(ref(db, 'stats/gamesPlayed'), (curr) => (curr || 0) + 1);
+}
+
+export async function incrementGamesFinished() {
+  const { db } = initFirebase();
+  return runTransaction(ref(db, 'stats/gamesFinished'), (curr) => (curr || 0) + 1);
+}
+
+export function watchStats(callback) {
+  const { db } = initFirebase();
+  const r = ref(db, 'stats');
+  const handler = onValue(r, (snap) => callback(snap.val() || {}));
+  return () => off(r, 'value', handler);
+}
+
+// أرقام عربية - مساعد يطلع للكل
+export function toArabicDigits(n) {
+  return String(n).replace(/\d/g, (d) => '٠١٢٣٤٥٦٧٨٩'[+d]);
 }
 
 // حذف الغرفة بالكامل (يستدعى من الهوست لما اللعبة تخلص)
