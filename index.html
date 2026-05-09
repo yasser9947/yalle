@@ -14,6 +14,42 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="css/style.css" />
 
+  <!-- Boot loader (inline علشان يبان قبل أي خط أو CDN) -->
+  <style>
+    body { background: #0F0F1E; }
+    #boot-loader {
+      position: fixed; inset: 0; z-index: 9999;
+      background: linear-gradient(135deg, #0F0F1E 0%, #1A1A2E 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: opacity 0.4s ease;
+      font-family: 'Tajawal', system-ui, sans-serif;
+    }
+    #boot-loader .boot-logo {
+      font-size: 4.5rem; font-weight: 900; line-height: 1;
+      background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #E94560 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 2rem;
+      filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.5));
+    }
+    #boot-loader .boot-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255, 215, 0, 0.2);
+      border-top-color: #FFD700;
+      border-radius: 50%;
+      animation: bl-spin 0.8s linear infinite;
+    }
+    #boot-loader .boot-text {
+      margin-top: 1.25rem;
+      color: #8B8B9F;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    @keyframes bl-spin { to { transform: rotate(360deg); } }
+  </style>
+
   <script>
     tailwind.config = {
       theme: {
@@ -32,6 +68,13 @@
   </script>
 </head>
 <body class="bg-stage">
+  <!-- Boot loader -->
+  <div id="boot-loader">
+    <div class="boot-logo">ياللي</div>
+    <div class="boot-spinner"></div>
+    <p class="boot-text">يحمّل...</p>
+  </div>
+
   <div class="stars"></div>
 
   <main class="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-8">
@@ -112,9 +155,15 @@
 
   <script type="module" src="js/game-logic.js"></script>
   <script type="module">
-    import { generateRoomCode, normalizeCode, showToast } from './js/game-logic.js';
+    import {
+      generateRoomCode, normalizeCode, showToast,
+      hideBootLoader, showPageTransition,
+    } from './js/game-logic.js';
 
     const $ = (id) => document.getElementById(id);
+
+    // أخفِ شاشة التحميل لما الصفحة تجهز
+    hideBootLoader();
 
     const homeScreen = $('home-screen');
     const joinScreen = $('join-screen');
@@ -135,6 +184,7 @@
 
     $('btn-create').addEventListener('click', () => {
       const code = generateRoomCode();
+      showPageTransition('يجهّز الغرفة...');
       window.location.href = `host.html?room=${code}`;
     });
 
@@ -162,6 +212,7 @@
       }
 
       const params = new URLSearchParams({ room: code, name });
+      showPageTransition('يدخل الغرفة...');
       window.location.href = `player.html?${params.toString()}`;
     }
   </script>

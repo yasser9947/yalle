@@ -285,7 +285,103 @@ export async function fetchRandomGif(keyword) {
 }
 
 // =====================================================
-// 6) UI helpers
+// 6) Loading / connection state helpers
+// =====================================================
+
+// إخفاء شاشة التحميل الأولية لما اللعبة تجهز
+export function hideBootLoader() {
+  const el = document.getElementById('boot-loader');
+  if (!el) return;
+  el.classList.add('fade-out');
+  setTimeout(() => el.remove(), 450);
+}
+
+// لو التهيئة تأخّرت → ابدّل النص إلى "بطيء شوي..."
+export function startSlowBootWatch(timeoutMs = 4000) {
+  return setTimeout(() => {
+    const t = document.querySelector('#boot-loader .boot-text');
+    if (t) {
+      t.textContent = 'الاتصال بطيء شوي... استنّى';
+      t.classList.add('slow');
+    }
+  }, timeoutMs);
+}
+
+// غلاف لتشغيل عملية async مع spinner على الزر + تحذير بطء بعد 2.5s
+export async function withButtonLoading(btn, asyncFn, opts = {}) {
+  const slowAfterMs = opts.slowAfterMs ?? 2500;
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.classList.add('btn-loading');
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  const slowTimer = setTimeout(() => {
+    btn.innerHTML = '<span class="spinner"></span><span class="btn-slow-text">بطيء شوي...</span>';
+  }, slowAfterMs);
+
+  try {
+    return await asyncFn();
+  } finally {
+    clearTimeout(slowTimer);
+    btn.disabled = false;
+    btn.classList.remove('btn-loading');
+    btn.innerHTML = original;
+  }
+}
+
+// مراقبة حالة الاتصال - يرجع unsubscribe
+export function watchOnlineStatus(callback) {
+  const { db } = initFirebase();
+  const r = ref(db, '.info/connected');
+  const handler = onValue(r, (snap) => callback(snap.val() === true));
+  return () => off(r, 'value', handler);
+}
+
+// إعداد بانر "ما في إنترنت" تلقائي
+export function setupOfflineBanner() {
+  let banner = null;
+  let firstConnect = false;
+
+  const show = () => {
+    if (banner) return;
+    banner = document.createElement('div');
+    banner.className = 'offline-banner';
+    banner.textContent = 'ما في إنترنت — تحقق من اتصالك';
+    document.body.appendChild(banner);
+  };
+  const hide = () => {
+    if (banner) { banner.remove(); banner = null; }
+  };
+
+  return watchOnlineStatus((online) => {
+    if (online) {
+      firstConnect = true;
+      hide();
+    } else if (firstConnect) {
+      // ما نظهر البانر إلا بعد ما اتصلنا أول مرة (تجنب الفلاش الأولي)
+      show();
+    }
+  });
+}
+
+// عرض overlay لما تنتقل بين الصفحات
+export function showPageTransition(text = 'يحمّل...') {
+  let el = document.getElementById('page-transition');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'page-transition';
+    el.innerHTML = `<div class="spinner"></div><p class="pt-text">${text}</p>`;
+    document.body.appendChild(el);
+  } else {
+    el.querySelector('.pt-text').textContent = text;
+  }
+  // فرض re-paint قبل ما نضيف visible علشان transition يشتغل
+  void el.offsetHeight;
+  el.classList.add('visible');
+}
+
+// =====================================================
+// 7) UI helpers (toast, escape)
 // =====================================================
 export function showToast(msg, type = 'info', duration = 3000) {
   const t = document.createElement('div');
@@ -306,7 +402,7 @@ export function escapeHtml(s) {
 }
 
 // =====================================================
-// 7) رسائل عشوائية مضحكة لشاشات الانتظار
+// 8) رسائل عشوائية مضحكة لشاشات الانتظار
 // =====================================================
 const WAITING_MESSAGES = [
   'يبيلها صبر... شكل فلان لسا يفكّر',
@@ -340,7 +436,7 @@ export function randomWinnerTagline() {
 }
 
 // =====================================================
-// 8) Helpers لاستخراج معلومات من الـ URL
+// 9) Helpers لاستخراج معلومات من الـ URL
 // =====================================================
 export function getQueryParam(name) {
   return new URLSearchParams(window.location.search).get(name);

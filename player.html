@@ -14,8 +14,59 @@
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 
   <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Boot loader styles (inline علشان تشتغل قبل تحميل أي شي) -->
+  <style>
+    body { background: #0F0F1E; }
+    #boot-loader {
+      position: fixed; inset: 0; z-index: 9999;
+      background: linear-gradient(135deg, #0F0F1E 0%, #1A1A2E 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: opacity 0.4s ease;
+      font-family: 'Tajawal', system-ui, sans-serif;
+    }
+    #boot-loader .boot-logo {
+      font-size: 4.5rem; font-weight: 900; line-height: 1;
+      background: linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #E94560 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 2rem;
+      filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.5));
+      animation: bl-pulse 2s ease-in-out infinite alternate;
+    }
+    #boot-loader .boot-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid rgba(255, 215, 0, 0.2);
+      border-top-color: #FFD700;
+      border-radius: 50%;
+      animation: bl-spin 0.8s linear infinite;
+    }
+    #boot-loader .boot-text {
+      margin-top: 1.25rem;
+      color: #8B8B9F;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      font-size: 0.95rem;
+      transition: color 0.3s ease;
+    }
+    #boot-loader .boot-text.slow { color: #FFD700; }
+    @keyframes bl-spin { to { transform: rotate(360deg); } }
+    @keyframes bl-pulse {
+      from { filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.4)); }
+      to   { filter: drop-shadow(0 0 50px rgba(255, 215, 0, 0.7)); }
+    }
+  </style>
 </head>
 <body class="bg-stage">
+  <!-- Boot loader -->
+  <div id="boot-loader">
+    <div class="boot-logo">ياللي</div>
+    <div class="boot-spinner"></div>
+    <p class="boot-text">يحمّل اللعبة...</p>
+  </div>
+
   <div class="stars"></div>
 
   <main class="relative z-10 min-h-screen px-4 py-6">

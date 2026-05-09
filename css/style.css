@@ -442,6 +442,75 @@ textarea.input-glow {
 /* Hidden helper */
 .hidden { display: none !important; }
 
+/* =====================================================
+   Boot loader — يطلع فوراً قبل ما يحمّل أي شي
+   (CSS الأساسية inline في الـ HEAD لكل صفحة كمان)
+   ===================================================== */
+#boot-loader.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Offline / disconnected banner */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 0.75rem 1rem;
+  background: rgba(233, 69, 96, 0.95);
+  color: #ffffff;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  z-index: 1001;
+  box-shadow: 0 4px 20px rgba(233, 69, 96, 0.4);
+  animation: banner-down 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes banner-down {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+
+/* Slow indicator على الأزرار (نص صغير جنب الـ spinner) */
+.btn-slow-text {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin-inline-start: 0.5rem;
+}
+
+/* عند تحميل الزر */
+.btn-loading {
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* Page transition overlay - لما تنتقل بين الصفحات */
+#page-transition {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 15, 30, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+#page-transition.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+#page-transition .pt-text {
+  margin-top: 1.25rem;
+  color: var(--gold);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
 /* Mobile niceties */
 @media (max-width: 640px) {
   .glass { border-radius: 1.25rem; }

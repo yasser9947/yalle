@@ -8,7 +8,9 @@ import {
   initFirebase, ensureSignedIn, getQueryParam,
   joinRoomAsPlayer, listenRoom, submitQuestion, markFinishedWriting,
   castVote, fetchRandomGif, showToast, escapeHtml,
-  randomWinnerTagline, STATES,
+  randomWinnerTagline,
+  hideBootLoader, startSlowBootWatch, withButtonLoading, setupOfflineBanner,
+  STATES,
 } from './game-logic.js';
 
 const $ = (id) => document.getElementById(id);
@@ -29,10 +31,15 @@ let voteInFlight = false;
 // Init
 // =====================================================
 (async function init() {
+  // مراقبة بطء التهيئة
+  const slowTimer = startSlowBootWatch(4000);
+
   roomCode = (getQueryParam('room') || '').toUpperCase();
   myName   = (getQueryParam('name') || '').trim();
 
   if (!roomCode || roomCode.length !== 6 || !myName) {
+    clearTimeout(slowTimer);
+    hideBootLoader();
     showError('بيانات الدخول ناقصة');
     return;
   }
@@ -44,9 +51,16 @@ let voteInFlight = false;
     await joinRoomAsPlayer(roomCode, myUid, myName);
   } catch (err) {
     console.error(err);
+    clearTimeout(slowTimer);
+    hideBootLoader();
     showError(err.message || 'فشل دخول الغرفة');
     return;
   }
+
+  // اتصلنا بنجاح
+  setupOfflineBanner();
+  clearTimeout(slowTimer);
+  hideBootLoader();
 
   $('my-name-pill').textContent = myName;
 
@@ -65,15 +79,14 @@ function setupHandlers() {
     charCount.textContent = qInput.value.length;
   });
 
-  $('btn-submit-q').addEventListener('click', async () => {
+  $('btn-submit-q').addEventListener('click', async (e) => {
     const text = qInput.value.trim();
     if (text.length < 5) {
       showToast('السؤال قصير، طوّله شوي يا شيخ', 'error');
       return;
     }
-    $('btn-submit-q').disabled = true;
     try {
-      await submitQuestion(roomCode, myUid, text);
+      await withButtonLoading(e.currentTarget, () => submitQuestion(roomCode, myUid, text));
       mySubmittedCount++;
       qInput.value = '';
       charCount.textContent = '0';
@@ -83,25 +96,22 @@ function setupHandlers() {
     } catch (err) {
       console.error(err);
       showToast('فشل إرسال السؤال', 'error');
-    } finally {
-      $('btn-submit-q').disabled = false;
     }
   });
 
-  $('btn-finished-writing').addEventListener('click', async () => {
+  $('btn-finished-writing').addEventListener('click', async (e) => {
     if (mySubmittedCount === 0) {
       showToast('اكتب على الأقل سؤال واحد', 'error');
       return;
     }
-    $('btn-finished-writing').disabled = true;
     try {
-      await markFinishedWriting(roomCode, myUid, true);
+      await withButtonLoading(e.currentTarget, () => markFinishedWriting(roomCode, myUid, true));
       $('waiting-others').classList.remove('hidden');
-      $('btn-finished-writing').innerHTML = '<span>خلّصت</span>';
+      e.currentTarget.disabled = true;
+      e.currentTarget.innerHTML = '<span>خلّصت</span>';
     } catch (err) {
       console.error(err);
       showToast('فشل التأكيد', 'error');
-      $('btn-finished-writing').disabled = false;
     }
   });
 }
@@ -223,19 +233,37 @@ async function handleVote(votedForUid) {
   if (voteInFlight) return;
   voteInFlight = true;
 
-  // تعطيل كل الأزرار فوراً
-  $('vote-buttons').querySelectorAll('button').forEach((b) => b.disabled = true);
+  const buttons = $('vote-buttons').querySelectorAll('button');
+  const clickedBtn = $('vote-buttons').querySelector(`button[data-uid="${votedForUid}"]`);
+  const originalLabel = clickedBtn ? clickedBtn.innerHTML : '';
+
+  // تعطيل كل الأزرار + spinner على المضغوط
+  buttons.forEach((b) => b.disabled = true);
+  if (clickedBtn) {
+    clickedBtn.classList.add('selected');
+    clickedBtn.innerHTML = '<span class="spinner"></span>';
+  }
+
+  // تحذير بطء بعد 2.5s
+  const slowTimer = setTimeout(() => {
+    if (clickedBtn) clickedBtn.innerHTML = '<span class="spinner"></span><span class="btn-slow-text">بطيء شوي...</span>';
+  }, 2500);
 
   try {
     await castVote(roomCode, myUid, votedForUid);
+    clearTimeout(slowTimer);
   } catch (err) {
+    clearTimeout(slowTimer);
     console.error(err);
     showToast(err.message || 'فشل التصويت', 'error');
     voteInFlight = false;
-    // تفعيل الأزرار مرة ثانية
-    $('vote-buttons').querySelectorAll('button').forEach((b) => {
-      const uid = b.dataset.uid;
-      b.disabled = uid === myUid;
+    // أرجع الزر لحالته الأصلية + فعّل الباقي
+    if (clickedBtn) {
+      clickedBtn.classList.remove('selected');
+      clickedBtn.innerHTML = originalLabel;
+    }
+    buttons.forEach((b) => {
+      b.disabled = b.dataset.uid === myUid;
     });
   }
 }

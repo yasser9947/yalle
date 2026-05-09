@@ -10,6 +10,8 @@ import {
   tallyAndCloseRound, finishGame, fetchRandomGif, showToast,
   escapeHtml, randomWaitingMessage, randomWinnerTagline,
   submitQuestion, markFinishedWriting, castVote,
+  hideBootLoader, startSlowBootWatch, withButtonLoading,
+  setupOfflineBanner, showPageTransition,
   STATES,
 } from './game-logic.js';
 
@@ -32,9 +34,14 @@ let voteInFlight = false;   // قفل التصويت
 // Init
 // =====================================================
 (async function init() {
+  // مراقبة التهيئة البطيئة - بعد 4 ثواني يبدّل النص لـ"بطيء شوي"
+  const slowTimer = startSlowBootWatch(4000);
+
   roomCode = (getQueryParam('room') || '').toUpperCase();
 
   if (!roomCode || roomCode.length !== 6) {
+    clearTimeout(slowTimer);
+    hideBootLoader();
     showToast('كود الغرفة مو صحيح', 'error');
     setTimeout(() => location.href = 'index.html', 1500);
     return;
@@ -45,11 +52,18 @@ let voteInFlight = false;   // قفل التصويت
   try {
     myUid = await ensureSignedIn();
   } catch (err) {
+    clearTimeout(slowTimer);
+    hideBootLoader();
     showToast('مشكلة في الاتصال - أعد المحاولة', 'error');
     return;
   }
 
-  // عرض شاشة إدخال الاسم للهوست
+  // اتصلنا بنجاح - فعّل بانر offline
+  setupOfflineBanner();
+
+  // أخفِ شاشة التحميل + اعرض شاشة الاسم
+  clearTimeout(slowTimer);
+  hideBootLoader();
   $('screen-name').classList.remove('hidden');
   $('host-name-input').focus();
 
@@ -66,16 +80,11 @@ async function startHosting() {
     return;
   }
 
-  $('host-name-go').disabled = true;
-  $('host-name-go').innerHTML = '<span class="spinner"></span>';
-
   try {
-    await createRoom(roomCode, myUid, name);
+    await withButtonLoading($('host-name-go'), () => createRoom(roomCode, myUid, name));
   } catch (err) {
     console.error(err);
     showToast('فشل إنشاء الغرفة - حاول مرة ثانية', 'error');
-    $('host-name-go').disabled = false;
-    $('host-name-go').innerHTML = 'دخول';
     return;
   }
 
@@ -121,14 +130,20 @@ function setupLobbyUI() {
     }
   });
 
-  $('btn-start-game').addEventListener('click', () => {
-    setRoomState(roomCode, STATES.WRITING).catch(console.error);
+  $('btn-start-game').addEventListener('click', async (e) => {
+    try {
+      await withButtonLoading(e.currentTarget, () => setRoomState(roomCode, STATES.WRITING));
+    } catch (err) { console.error(err); showToast('فشل بدء اللعبة', 'error'); }
   });
 
   $('btn-start-voting').addEventListener('click', startVotingRound);
   $('btn-reveal').addEventListener('click', revealRound);
   $('btn-next-q').addEventListener('click', startVotingRound);
-  $('btn-end-game').addEventListener('click', () => finishGame(roomCode).catch(console.error));
+  $('btn-end-game').addEventListener('click', async (e) => {
+    try {
+      await withButtonLoading(e.currentTarget, () => finishGame(roomCode));
+    } catch (err) { console.error(err); showToast('فشل إنهاء اللعبة', 'error'); }
+  });
 
   // واجهة كتابة الهوست (الهوست لاعب أيضاً)
   setupHostWritingHandlers();
@@ -145,15 +160,14 @@ function setupHostWritingHandlers() {
     charCount.textContent = qInput.value.length;
   });
 
-  $('btn-host-submit-q').addEventListener('click', async () => {
+  $('btn-host-submit-q').addEventListener('click', async (e) => {
     const text = qInput.value.trim();
     if (text.length < 5) {
       showToast('السؤال قصير، طوّله شوي يا شيخ', 'error');
       return;
     }
-    $('btn-host-submit-q').disabled = true;
     try {
-      await submitQuestion(roomCode, myUid, text);
+      await withButtonLoading(e.currentTarget, () => submitQuestion(roomCode, myUid, text));
       myQuestionsCount++;
       qInput.value = '';
       charCount.textContent = '0';
@@ -163,24 +177,21 @@ function setupHostWritingHandlers() {
     } catch (err) {
       console.error(err);
       showToast('فشل إرسال السؤال', 'error');
-    } finally {
-      $('btn-host-submit-q').disabled = false;
     }
   });
 
-  $('btn-host-finished-writing').addEventListener('click', async () => {
+  $('btn-host-finished-writing').addEventListener('click', async (e) => {
     if (myQuestionsCount === 0) {
       showToast('اكتب على الأقل سؤال واحد', 'error');
       return;
     }
-    $('btn-host-finished-writing').disabled = true;
     try {
-      await markFinishedWriting(roomCode, myUid, true);
-      $('btn-host-finished-writing').innerHTML = '<span>خلّصت</span>';
+      await withButtonLoading(e.currentTarget, () => markFinishedWriting(roomCode, myUid, true));
+      e.currentTarget.disabled = true;
+      e.currentTarget.innerHTML = '<span>خلّصت</span>';
     } catch (err) {
       console.error(err);
       showToast('فشل التأكيد', 'error');
-      $('btn-host-finished-writing').disabled = false;
     }
   });
 }
@@ -301,24 +312,21 @@ function renderWriting(room) {
   }
 }
 
-async function startVotingRound() {
-  $('btn-start-voting').disabled = true;
-  $('btn-next-q').disabled = true;
-
+async function startVotingRound(ev) {
   if (funnyMsgTimer) { clearInterval(funnyMsgTimer); funnyMsgTimer = null; }
 
+  const btn = ev?.currentTarget || $('btn-start-voting');
   try {
-    const result = await startNextRound(roomCode);
-    if (!result) {
-      // ما في أسئلة - أنهِ اللعبة
-      showToast('خلّصت كل الأسئلة', 'success');
-      await finishGame(roomCode);
-    }
+    await withButtonLoading(btn, async () => {
+      const result = await startNextRound(roomCode);
+      if (!result) {
+        showToast('خلّصت كل الأسئلة', 'success');
+        await finishGame(roomCode);
+      }
+    });
   } catch (err) {
     console.error(err);
     showToast('فشل بدء الجولة', 'error');
-    $('btn-start-voting').disabled = false;
-    $('btn-next-q').disabled = false;
   }
 }
 
@@ -377,14 +385,13 @@ function renderVoting(room) {
   $('btn-reveal').disabled = !(voted === total && total >= 2);
 }
 
-async function revealRound() {
-  $('btn-reveal').disabled = true;
+async function revealRound(ev) {
+  const btn = ev?.currentTarget || $('btn-reveal');
   try {
-    await tallyAndCloseRound(roomCode);
+    await withButtonLoading(btn, () => tallyAndCloseRound(roomCode));
   } catch (err) {
     console.error(err);
     showToast('فشل عرض النتيجة', 'error');
-    $('btn-reveal').disabled = false;
   }
 }
 
@@ -393,15 +400,31 @@ async function handleHostVote(votedForUid) {
   voteInFlight = true;
 
   const buttons = $('host-vote-buttons').querySelectorAll('button');
+  const clickedBtn = $('host-vote-buttons').querySelector(`button[data-uid="${votedForUid}"]`);
+  const originalLabel = clickedBtn ? clickedBtn.innerHTML : '';
+
   buttons.forEach((b) => b.disabled = true);
+  if (clickedBtn) {
+    clickedBtn.classList.add('selected');
+    clickedBtn.innerHTML = '<span class="spinner"></span>';
+  }
+
+  const slowTimer = setTimeout(() => {
+    if (clickedBtn) clickedBtn.innerHTML = '<span class="spinner"></span><span class="btn-slow-text">بطيء شوي...</span>';
+  }, 2500);
 
   try {
     await castVote(roomCode, myUid, votedForUid);
+    clearTimeout(slowTimer);
   } catch (err) {
+    clearTimeout(slowTimer);
     console.error(err);
     showToast(err.message || 'فشل التصويت', 'error');
     voteInFlight = false;
-    // أعد تفعيل الأزرار (ما عدا الهوست)
+    if (clickedBtn) {
+      clickedBtn.classList.remove('selected');
+      clickedBtn.innerHTML = originalLabel;
+    }
     buttons.forEach((b) => {
       b.disabled = b.dataset.uid === myUid;
     });
