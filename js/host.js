@@ -12,6 +12,8 @@ import {
   submitQuestion, markFinishedWriting, castVote,
   hideBootLoader, startSlowBootWatch, withButtonLoading,
   setupOfflineBanner, showPageTransition,
+  scheduleRoomCleanupOnDisconnect, deleteRoom,
+  applyTheme, getTheme, themeGiphyKeyword, themeGreeting, refreshThemeStrings,
   STATES,
 } from './game-logic.js';
 
@@ -29,6 +31,8 @@ let funnyMsgTimer = null;
 let lastWinnerUid = null;
 let myQuestionsCount = 0;   // كم سؤال كتبه الهوست
 let voteInFlight = false;   // قفل التصويت
+let selectedTheme = 'shabaabia';  // ثيم اللعبة المختار
+let cleanupScheduled = false;     // علم إن الـ onDisconnect cleanup اتسجل
 
 // =====================================================
 // Init
@@ -71,17 +75,30 @@ let voteInFlight = false;   // قفل التصويت
   $('host-name-input').addEventListener('keyup', (e) => {
     if (e.key === 'Enter') startHosting();
   });
+
+  // اختيار الثيم
+  document.querySelectorAll('#theme-picker .theme-chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#theme-picker .theme-chip').forEach((c) => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      selectedTheme = chip.dataset.themeId;
+      applyTheme(selectedTheme);
+      refreshThemeStrings(selectedTheme); // يغيّر الـ placeholders تلقائياً
+    });
+  });
+  applyTheme(selectedTheme);
+  refreshThemeStrings(selectedTheme);
 })();
 
 async function startHosting() {
   const name = $('host-name-input').value.trim();
   if (name.length < 2) {
-    showToast('اكتب اسمك يا شيخ', 'error');
+    showToast(`اكتب اسمك ${themeGreeting(selectedTheme)}`, 'error');
     return;
   }
 
   try {
-    await withButtonLoading($('host-name-go'), () => createRoom(roomCode, myUid, name));
+    await withButtonLoading($('host-name-go'), () => createRoom(roomCode, myUid, name, selectedTheme));
   } catch (err) {
     console.error(err);
     showToast('فشل إنشاء الغرفة - حاول مرة ثانية', 'error');
@@ -145,6 +162,16 @@ function setupLobbyUI() {
     } catch (err) { console.error(err); showToast('فشل إنهاء اللعبة', 'error'); }
   });
 
+  // أزرار التخطّي للهوست (override)
+  $('btn-force-start-voting').addEventListener('click', async () => {
+    if (!confirm('متأكد؟ في لاعبين ما خلّصوا الكتابة')) return;
+    await startVotingRound();
+  });
+  $('btn-force-reveal').addEventListener('click', async () => {
+    if (!confirm('متأكد؟ في لاعبين ما صوّتوا')) return;
+    await revealRound();
+  });
+
   // واجهة كتابة الهوست (الهوست لاعب أيضاً)
   setupHostWritingHandlers();
 }
@@ -163,7 +190,7 @@ function setupHostWritingHandlers() {
   $('btn-host-submit-q').addEventListener('click', async (e) => {
     const text = qInput.value.trim();
     if (text.length < 5) {
-      showToast('السؤال قصير، طوّله شوي يا شيخ', 'error');
+      showToast(`السؤال قصير، طوّله شوي ${themeGreeting(selectedTheme)}`, 'error');
       return;
     }
     try {
@@ -217,6 +244,22 @@ function renderRoom(room) {
   const state = room.state;
   $('state-label').textContent = stateToArabic(state);
 
+  // طبّق ثيم الغرفة
+  if (room.theme) {
+    selectedTheme = room.theme;
+    applyTheme(room.theme);
+    refreshThemeStrings(room.theme);
+  }
+
+  // لما اللعبة تخلص: علم Firebase يحذف الغرفة لما الهوست ينقطع + timer 90s
+  if (state === STATES.FINISHED && !cleanupScheduled) {
+    cleanupScheduled = true;
+    try { scheduleRoomCleanupOnDisconnect(roomCode); } catch (e) { console.warn(e); }
+    setTimeout(() => {
+      deleteRoom(roomCode).catch((e) => console.warn('cleanup failed', e));
+    }, 90000);
+  }
+
   // عرض الشاشة الصحيحة
   if (state !== lastState) {
     ['lobby','writing','voting','results','finished'].forEach((s) => {
@@ -265,7 +308,8 @@ function stateToArabic(s) {
 // LOBBY
 // =====================================================
 function renderLobby(room) {
-  const players = playersArray(room);
+  const allPlayers = playersArray(room);
+  const players = allPlayers.filter((p) => p.online !== false);
   $('player-count').textContent = players.length;
 
   const list = $('lobby-players');
@@ -286,7 +330,8 @@ function renderLobby(room) {
 // WRITING
 // =====================================================
 function renderWriting(room) {
-  const players = playersArray(room);
+  const all = playersArray(room);
+  const players = all.filter((p) => p.online !== false);
   const done = players.filter((p) => p.finishedWriting).length;
   const total = players.length;
 
@@ -303,11 +348,11 @@ function renderWriting(room) {
 
   $('btn-start-voting').disabled = !(total >= 2 && done === total);
 
-  // رسالة عشوائية تتجدد كل 4 ثواني
+  // رسالة عشوائية حسب ثيم الغرفة، تتجدد كل 4 ثواني
   if (!funnyMsgTimer) {
-    $('writing-funny-msg').textContent = randomWaitingMessage();
+    $('writing-funny-msg').textContent = randomWaitingMessage(selectedTheme);
     funnyMsgTimer = setInterval(() => {
-      $('writing-funny-msg').textContent = randomWaitingMessage();
+      $('writing-funny-msg').textContent = randomWaitingMessage(selectedTheme);
     }, 4000);
   }
 }
@@ -337,10 +382,18 @@ function renderVoting(room) {
   const round = room.currentRound;
   if (!round) return;
 
-  const players = playersArray(room);
-  const votes = round.votes || {};
-  const voted = Object.keys(votes).length;
+  const all = playersArray(room);
+  const players = all.filter((p) => p.online !== false);
+  const onlineUids = new Set(players.map((p) => p.uid));
+
+  const allVotes = round.votes || {};
+  // فلترة الأصوات الشبحية (من خرج)
+  const liveVotes = Object.fromEntries(
+    Object.entries(allVotes).filter(([voterUid]) => onlineUids.has(voterUid))
+  );
+  const voted = Object.keys(liveVotes).length;
   const total = players.length;
+  const votes = liveVotes;
   const myVote = votes[myUid];
 
   // أزرار التصويت للهوست (يمنع التصويت لنفسه)
@@ -440,20 +493,32 @@ async function renderResults(room) {
 
   const players = playersArray(room);
   const winnerUid = round.winnerUid;
-  const winner = players.find((p) => p.uid === winnerUid);
+  const winnersUids = round.winners || (winnerUid ? [winnerUid] : []);
+  const winnerObjs = winnersUids.map((uid) => players.find((p) => p.uid === uid)).filter(Boolean);
   const tally = round.tally || {};
+  const tied = winnersUids.length > 1;
 
-  $('results-tagline').textContent = randomWinnerTagline();
-  $('winner-name').textContent = winner ? winner.name : 'ما حد فاز';
-  $('winner-votes').textContent = winnerUid ? (tally[winnerUid] || 0) : 0;
+  $('results-tagline').textContent = tied ? 'تعادل! الفايزون' : randomWinnerTagline(selectedTheme);
+
+  // عرض الفايز/الفايزين
+  if (winnerObjs.length === 0) {
+    $('winner-name').textContent = 'ما حد فاز';
+    $('winner-votes').textContent = '0';
+  } else if (tied) {
+    $('winner-name').innerHTML = winnerObjs.map((p) => escapeHtml(p.name)).join('<br>');
+    $('winner-votes').textContent = tally[winnersUids[0]] || 0;
+  } else {
+    $('winner-name').textContent = winnerObjs[0].name;
+    $('winner-votes').textContent = tally[winnerUid] || 0;
+  }
 
   // mini board (مرتب)
-  const sorted = [...players].sort((a, b) => b.score - a.score);
+  const sorted = [...players].sort((a, b) => (b.score||0) - (a.score||0));
   $('mini-board').innerHTML = sorted.map((p, i) => `
-    <div class="flex items-center gap-3 p-3 glass rounded-xl">
+    <div class="flex items-center gap-3 p-3 glass rounded-xl ${p.online === false ? 'opacity-60' : ''}">
       <span class="rank-pill rank-${i+1}">${arabicDigit(i+1)}</span>
-      <span class="font-bold flex-1 text-right">${escapeHtml(p.name)}</span>
-      <span class="score-badge">${p.score}</span>
+      <span class="font-bold flex-1 text-right">${escapeHtml(p.name)}${p.online === false ? ' · طلع' : ''}</span>
+      <span class="score-badge">${p.score || 0}</span>
     </div>
   `).join('');
 
@@ -474,12 +539,18 @@ async function renderResults(room) {
     lastWinnerUid = winnerUid;
 
     if (typeof confetti === 'function') {
-      confetti({ particleCount: 150, spread: 90, origin: { y: 0.5 }, colors: ['#FFD700', '#E94560', '#00D9A3'] });
+      const t = getTheme(selectedTheme);
+      confetti({
+        particleCount: tied ? 220 : 150,
+        spread: 90,
+        origin: { y: 0.5 },
+        colors: [t.primary, t.secondary, '#00D9A3'],
+      });
     }
 
-    // جلب GIF
+    // جلب GIF حسب ثيم الغرفة
     $('gif-container').innerHTML = '<div class="spinner"></div>';
-    const gifUrl = await fetchRandomGif('celebration');
+    const gifUrl = await fetchRandomGif(themeGiphyKeyword(selectedTheme));
     if (gifUrl) {
       $('gif-container').innerHTML = `<img src="${gifUrl}" alt="celebration" class="max-h-72 mx-auto" />`;
     } else {
@@ -493,23 +564,38 @@ async function renderResults(room) {
 // =====================================================
 function renderFinished(room) {
   const players = playersArray(room);
-  const sorted = [...players].sort((a, b) => b.score - a.score);
-  const champion = sorted[0];
+  const sorted = [...players].sort((a, b) => (b.score||0) - (a.score||0));
 
-  $('champion-name').textContent = champion ? champion.name : '—';
+  // الشامبيون: أعلى نقاط (لو تعادل، كلهم شامبيون)
+  const topScore = sorted[0]?.score || 0;
+  const champions = sorted.filter((p) => (p.score||0) === topScore && topScore > 0);
+
+  // عنوان شخصي للثيم
+  const titleEl = $('champion-title');
+  if (titleEl) titleEl.textContent = getTheme(selectedTheme).championLabel;
+
+  if (champions.length === 0) {
+    $('champion-name').textContent = '—';
+  } else if (champions.length === 1) {
+    $('champion-name').textContent = champions[0].name;
+  } else {
+    $('champion-name').innerHTML = champions.map((p) => escapeHtml(p.name)).join('<br>');
+  }
 
   $('final-board').innerHTML = sorted.map((p, i) => `
-    <div class="flex items-center gap-3 p-4 glass rounded-xl ${i===0 ? 'glass-red' : ''}">
+    <div class="flex items-center gap-3 p-4 glass rounded-xl ${champions.includes(p) ? 'glass-red' : ''} ${p.online === false ? 'opacity-60' : ''}">
       <span class="rank-pill rank-${i+1}">${arabicDigit(i+1)}</span>
-      <span class="font-bold flex-1 text-right text-lg">${escapeHtml(p.name)}</span>
-      <span class="score-badge">${p.score}</span>
+      <span class="font-bold flex-1 text-right text-lg">${escapeHtml(p.name)}${p.online === false ? ' · طلع' : ''}</span>
+      <span class="score-badge">${p.score || 0}</span>
     </div>
   `).join('');
 
   if (typeof confetti === 'function') {
-    confetti({ particleCount: 250, spread: 120, origin: { y: 0.4 }, colors: ['#FFD700', '#E94560', '#00D9A3'] });
-    setTimeout(() => confetti({ particleCount: 100, spread: 70, origin: { x: 0.2 } }), 400);
-    setTimeout(() => confetti({ particleCount: 100, spread: 70, origin: { x: 0.8 } }), 700);
+    const t = getTheme(selectedTheme);
+    const colors = [t.primary, t.secondary, '#00D9A3'];
+    confetti({ particleCount: 250, spread: 120, origin: { y: 0.4 }, colors });
+    setTimeout(() => confetti({ particleCount: 100, spread: 70, origin: { x: 0.2 }, colors }), 400);
+    setTimeout(() => confetti({ particleCount: 100, spread: 70, origin: { x: 0.8 }, colors }), 700);
   }
 }
 

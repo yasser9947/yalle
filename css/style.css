@@ -12,6 +12,78 @@
   --muted: #8B8B9F;
 }
 
+/* ===========================
+   Themes - الألوان تتغيّر حسب الثيم
+   =========================== */
+:root,
+:root[data-theme="shabaabia"] {
+  --gold: #FFD700;   /* ذهبي صحراء نجد */
+  --red:  #E94560;   /* أحمر دافئ */
+}
+:root[data-theme="banat"] {
+  --gold: #FF6FAB;   /* وردي فاقع */
+  --red:  #A855F7;   /* بنفسجي */
+}
+:root[data-theme="family"] {
+  --gold: #FFA500;   /* برتقالي دافئ */
+  --red:  #00D9A3;   /* أخضر تيل */
+}
+
+/* خلفية تتغيّر شوي حسب الثيم */
+:root[data-theme="banat"] .bg-stage {
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(168, 85, 247, 0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(255, 111, 171, 0.12) 0%, transparent 50%),
+    linear-gradient(135deg, var(--bg-deep) 0%, var(--bg-mid) 100%);
+}
+:root[data-theme="family"] .bg-stage {
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(0, 217, 163, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(255, 165, 0, 0.12) 0%, transparent 50%),
+    linear-gradient(135deg, var(--bg-deep) 0%, var(--bg-mid) 100%);
+}
+
+/* Theme selector chip */
+.theme-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.85rem 0.5rem;
+  border-radius: 0.85rem;
+  border: 2px solid rgba(234, 234, 234, 0.15);
+  background: rgba(15, 15, 30, 0.55);
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-align: center;
+}
+.theme-chip:hover {
+  border-color: rgba(234, 234, 234, 0.4);
+  background: rgba(15, 15, 30, 0.8);
+}
+.theme-chip.selected {
+  border-color: var(--gold);
+  background: rgba(255, 215, 0, 0.1);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+.theme-chip .tc-name {
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+.theme-chip .tc-desc {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+.theme-chip .tc-swatch {
+  width: 34px;
+  height: 8px;
+  border-radius: 999px;
+  margin-bottom: 0.25rem;
+}
+
 /* الخط الأساسي */
 html, body {
   font-family: 'Tajawal', 'IBM Plex Sans Arabic', system-ui, sans-serif;

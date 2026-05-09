@@ -10,6 +10,7 @@ import {
   castVote, fetchRandomGif, showToast, escapeHtml,
   randomWinnerTagline,
   hideBootLoader, startSlowBootWatch, withButtonLoading, setupOfflineBanner,
+  applyTheme, getTheme, themeGiphyKeyword, themeGreeting, refreshThemeStrings,
   STATES,
 } from './game-logic.js';
 
@@ -26,6 +27,7 @@ let lastState = null;
 let currentRoundQid = null;
 let mySubmittedCount = 0;
 let voteInFlight = false;
+let currentTheme = 'shabaabia';
 
 // =====================================================
 // Init
@@ -82,7 +84,7 @@ function setupHandlers() {
   $('btn-submit-q').addEventListener('click', async (e) => {
     const text = qInput.value.trim();
     if (text.length < 5) {
-      showToast('السؤال قصير، طوّله شوي يا شيخ', 'error');
+      showToast(`السؤال قصير، طوّله شوي ${themeGreeting(currentTheme)}`, 'error');
       return;
     }
     try {
@@ -143,6 +145,13 @@ function startListeningToRoom() {
 function renderRoom(room) {
   const state = room.state;
 
+  // طبّق الثيم من الغرفة
+  if (room.theme && room.theme !== currentTheme) {
+    currentTheme = room.theme;
+    applyTheme(currentTheme);
+    refreshThemeStrings(currentTheme);
+  }
+
   // عرض النقاط
   const myScore = room.players?.[myUid]?.score || 0;
   $('my-score-pill').textContent = arabicDigit(myScore);
@@ -184,7 +193,8 @@ function renderRoom(room) {
 function renderLobby(room) {
   $('lobby-greet').textContent = myName;
   $('lobby-code').textContent = roomCode;
-  const players = playersArray(room);
+  const all = playersArray(room);
+  const players = all.filter((p) => p.online !== false);
   $('lobby-players').innerHTML = players.map((p) => `
     <span class="px-3 py-1 rounded-full bg-gold/10 border border-gold/30 text-sm font-bold ${p.uid===myUid ? 'neon-gold' : ''}">
       ${escapeHtml(p.name)}${p.isHost ? ' · هوست' : ''}
@@ -201,7 +211,8 @@ function renderVoting(room) {
 
   $('voting-question').textContent = round.questionText;
 
-  const players = playersArray(room);
+  const all = playersArray(room);
+  const players = all.filter((p) => p.online !== false);
   const myVote = round.votes?.[myUid];
 
   $('vote-buttons').innerHTML = players.map((p) => {
@@ -277,17 +288,35 @@ async function renderResults(room) {
 
   const players = playersArray(room);
   const winnerUid = round.winnerUid;
-  const winner = players.find((p) => p.uid === winnerUid);
+  const winnersUids = round.winners || (winnerUid ? [winnerUid] : []);
+  const winnerObjs = winnersUids.map((uid) => players.find((p) => p.uid === uid)).filter(Boolean);
   const tally = round.tally || {};
+  const tied = winnersUids.length > 1;
+  const iAmWinner = winnersUids.includes(myUid);
 
-  $('player-results-tagline').textContent = randomWinnerTagline();
-  $('player-winner-name').textContent = winner ? winner.name : 'ما حد فاز';
-  $('player-winner-votes').textContent = winnerUid ? (tally[winnerUid] || 0) : 0;
+  $('player-results-tagline').textContent = tied ? 'تعادل! الفايزون' : randomWinnerTagline(currentTheme);
 
-  // إذا أنا الفايز - confetti
-  if (winnerUid === myUid && round.questionId !== currentRoundQid) {
+  if (winnerObjs.length === 0) {
+    $('player-winner-name').textContent = 'ما حد فاز';
+    $('player-winner-votes').textContent = '0';
+  } else if (tied) {
+    $('player-winner-name').innerHTML = winnerObjs.map((p) => escapeHtml(p.name)).join('<br>');
+    $('player-winner-votes').textContent = tally[winnersUids[0]] || 0;
+  } else {
+    $('player-winner-name').textContent = winnerObjs[0].name;
+    $('player-winner-votes').textContent = tally[winnerUid] || 0;
+  }
+
+  // إذا أنا فايز - confetti
+  if (iAmWinner && round.questionId !== currentRoundQid) {
     if (typeof confetti === 'function') {
-      confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 }, colors: ['#FFD700', '#E94560', '#00D9A3'] });
+      const t = getTheme(currentTheme);
+      confetti({
+        particleCount: 200,
+        spread: 100,
+        origin: { y: 0.5 },
+        colors: [t.primary, t.secondary, '#00D9A3'],
+      });
     }
   }
 
@@ -295,7 +324,7 @@ async function renderResults(room) {
   if (round.questionId !== currentRoundQid) {
     currentRoundQid = round.questionId;
     $('player-gif').innerHTML = '<div class="spinner"></div>';
-    const gifUrl = await fetchRandomGif('funny');
+    const gifUrl = await fetchRandomGif(themeGiphyKeyword(currentTheme));
     if (gifUrl) {
       $('player-gif').innerHTML = `<img src="${gifUrl}" alt="celebration" class="max-h-56 mx-auto" />`;
     } else {
@@ -309,21 +338,38 @@ async function renderResults(room) {
 // =====================================================
 function renderFinished(room) {
   const players = playersArray(room);
-  const sorted = [...players].sort((a, b) => b.score - a.score);
-  const champion = sorted[0];
+  const sorted = [...players].sort((a, b) => (b.score||0) - (a.score||0));
 
-  $('player-champion').textContent = champion ? champion.name : '—';
+  const topScore = sorted[0]?.score || 0;
+  const champions = sorted.filter((p) => (p.score||0) === topScore && topScore > 0);
+  const iAmChamp = champions.some((p) => p.uid === myUid);
+
+  // عنوان شخصي للثيم
+  const titleEl = $('champion-title');
+  if (titleEl) titleEl.textContent = getTheme(currentTheme).championLabel;
+
+  if (champions.length === 0) {
+    $('player-champion').textContent = '—';
+  } else if (champions.length === 1) {
+    $('player-champion').textContent = champions[0].name;
+  } else {
+    $('player-champion').innerHTML = champions.map((p) => escapeHtml(p.name)).join('<br>');
+  }
 
   $('player-board').innerHTML = sorted.map((p, i) => `
-    <div class="flex items-center gap-3 p-3 glass rounded-xl ${p.uid===myUid ? 'glass-red' : ''}">
+    <div class="flex items-center gap-3 p-3 glass rounded-xl ${p.uid===myUid ? 'glass-red' : ''} ${p.online === false ? 'opacity-60' : ''}">
       <span class="rank-pill rank-${i+1}">${arabicDigit(i+1)}</span>
-      <span class="font-bold flex-1 text-right">${escapeHtml(p.name)}${p.uid===myUid ? ' · أنت' : ''}</span>
-      <span class="score-badge">${p.score}</span>
+      <span class="font-bold flex-1 text-right">${escapeHtml(p.name)}${p.uid===myUid ? ' · أنت' : ''}${p.online === false && p.uid !== myUid ? ' · طلع' : ''}</span>
+      <span class="score-badge">${p.score || 0}</span>
     </div>
   `).join('');
 
-  if (champion?.uid === myUid && typeof confetti === 'function') {
-    confetti({ particleCount: 300, spread: 130, origin: { y: 0.4 }, colors: ['#FFD700', '#E94560', '#00D9A3'] });
+  if (iAmChamp && typeof confetti === 'function') {
+    const t = getTheme(currentTheme);
+    confetti({
+      particleCount: 300, spread: 130, origin: { y: 0.4 },
+      colors: [t.primary, t.secondary, '#00D9A3'],
+    });
   }
 }
 

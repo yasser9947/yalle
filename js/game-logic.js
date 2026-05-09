@@ -99,11 +99,12 @@ export function roomRef(code) {
 }
 
 // إنشاء غرفة جديدة - الهوست يستدعيها
-export async function createRoom(code, hostUid, hostName = 'الهوست') {
+export async function createRoom(code, hostUid, hostName = 'الهوست', themeId = 'shabaabia') {
   const { db } = initFirebase();
   const roomData = {
     host: hostUid,
     state: STATES.LOBBY,
+    theme: themeId,
     createdAt: serverTimestamp(),
     players: {
       [hostUid]: {
@@ -112,19 +113,22 @@ export async function createRoom(code, hostUid, hostName = 'الهوست') {
         finishedWriting: false,
         joinedAt: serverTimestamp(),
         isHost: true,
+        online: true,
       }
     },
     questions: {},
     currentRound: null,
   };
   await set(ref(db, `rooms/${code}`), roomData);
+
+  // لما الهوست ينقطع: نحدّث online فقط (نحفظ نقاطه إذا رجع)
+  onDisconnect(ref(db, `rooms/${code}/players/${hostUid}/online`)).set(false);
 }
 
-// دخول لاعب لغرفة موجودة
+// دخول لاعب لغرفة موجودة - يدعم الرجوع (يحفظ النقاط)
 export async function joinRoomAsPlayer(code, uid, name) {
   const { db } = initFirebase();
 
-  // تأكد أن الغرفة موجودة
   const snap = await get(ref(db, `rooms/${code}`));
   if (!snap.exists()) {
     throw new Error('الغرفة مو موجودة');
@@ -134,17 +138,26 @@ export async function joinRoomAsPlayer(code, uid, name) {
     throw new Error('اللعبة خلصت يا شيخ');
   }
 
-  // أضف اللاعب
-  await update(ref(db, `rooms/${code}/players/${uid}`), {
-    name,
-    score: 0,
-    finishedWriting: false,
-    joinedAt: serverTimestamp(),
-    isHost: false,
-  });
+  const playerRef = ref(db, `rooms/${code}/players/${uid}`);
+  const existing = room.players?.[uid];
 
-  // اربط onDisconnect لإزالة اللاعب لو خرج
-  onDisconnect(ref(db, `rooms/${code}/players/${uid}`)).remove();
+  if (existing) {
+    // رجوع: نحافظ على النقاط + finishedWriting، فقط نعلّمه online
+    await update(playerRef, { online: true, name });
+  } else {
+    // دخول أول مرة
+    await set(playerRef, {
+      name,
+      score: 0,
+      finishedWriting: false,
+      joinedAt: serverTimestamp(),
+      isHost: false,
+      online: true,
+    });
+  }
+
+  // عند الانفصال: نحدّث online بس (نحفظ السجل علشان الرجوع)
+  onDisconnect(ref(db, `rooms/${code}/players/${uid}/online`)).set(false);
 }
 
 // تغيير حالة الغرفة
@@ -215,40 +228,78 @@ export async function castVote(code, voterUid, votedForUid) {
 }
 
 // حساب الفائز للجولة الحالية + إضافة نقطة
+// يحسب أصوات اللاعبين الموجودين الآن (online) فقط، ويتجاهل أصوات اللي طلعوا.
+// لو تعادل: كل المتعادلين يأخذون نقطة.
 export async function tallyAndCloseRound(code) {
   const { db } = initFirebase();
-  const roundSnap = await get(ref(db, `rooms/${code}/currentRound`));
+  const [roundSnap, playersSnap] = await Promise.all([
+    get(ref(db, `rooms/${code}/currentRound`)),
+    get(ref(db, `rooms/${code}/players`)),
+  ]);
   if (!roundSnap.exists()) return null;
 
   const round = roundSnap.val();
-  const votes = round.votes || {};
+  const players = playersSnap.val() || {};
+  const onlineUids = new Set(
+    Object.entries(players)
+      .filter(([_, p]) => p.online !== false)
+      .map(([uid]) => uid)
+  );
+
+  const allVotes = round.votes || {};
   const tally = {};
-  Object.values(votes).forEach((uid) => {
-    tally[uid] = (tally[uid] || 0) + 1;
+  Object.entries(allVotes).forEach(([voterUid, votedForUid]) => {
+    // أصوات شبحية (المصوّت طلع) → تجاهل
+    if (!onlineUids.has(voterUid)) return;
+    tally[votedForUid] = (tally[votedForUid] || 0) + 1;
   });
 
-  // الفائز = اللي عنده أعلى عدد. لو تعادل، خذ أول واحد.
-  let winnerUid = null;
-  let max = -1;
-  Object.entries(tally).forEach(([uid, count]) => {
-    if (count > max) { max = count; winnerUid = uid; }
-  });
+  // المتعادلون - كلهم يأخذون نقطة
+  let max = 0;
+  Object.values(tally).forEach((c) => { if (c > max) max = c; });
+  const winners = max > 0
+    ? Object.entries(tally).filter(([_, c]) => c === max).map(([uid]) => uid)
+    : [];
 
-  if (winnerUid) {
-    // أضف نقطة للفائز - استخدم transaction علشان امان
-    const scoreRef = ref(db, `rooms/${code}/players/${winnerUid}/score`);
+  // امنح نقطة لكل فائز موجود
+  for (const uid of winners) {
+    if (!players[uid]) continue; // الفايز طلع ومتروك سجله
+    const scoreRef = ref(db, `rooms/${code}/players/${uid}/score`);
     await runTransaction(scoreRef, (curr) => (curr || 0) + 1);
   }
 
-  await update(ref(db, `rooms/${code}/currentRound`), { winnerUid, tally });
+  // الفايز الأساسي للعرض - أول واحد في القائمة (لو واحد بس، هو هو)
+  const winnerUid = winners[0] || null;
+  await update(ref(db, `rooms/${code}/currentRound`), {
+    winnerUid, tally, winners, // winners[] = كل المتعادلين
+  });
   await setRoomState(code, STATES.RESULTS);
 
-  return { winnerUid, tally };
+  return { winnerUid, winners, tally };
 }
 
 // إنهاء اللعبة
 export async function finishGame(code) {
   await setRoomState(code, STATES.FINISHED);
+}
+
+// حذف الغرفة بالكامل (يستدعى من الهوست لما اللعبة تخلص)
+export async function deleteRoom(code) {
+  const { db } = initFirebase();
+  await remove(ref(db, `rooms/${code}`));
+}
+
+// لما اللعبة تخلص: نعلّم Firebase يحذف الغرفة لما الهوست ينقطع
+// → توفير في تكلفة الـ DB
+export function scheduleRoomCleanupOnDisconnect(code) {
+  const { db } = initFirebase();
+  onDisconnect(ref(db, `rooms/${code}`)).remove();
+}
+
+// إلغاء الـ onDisconnect cleanup (لو الهوست بدأ لعبة جديدة)
+export function cancelRoomCleanupOnDisconnect(code) {
+  const { db } = initFirebase();
+  onDisconnect(ref(db, `rooms/${code}`)).cancel();
 }
 
 // =====================================================
@@ -261,20 +312,37 @@ export function listenRoom(code, callback) {
 }
 
 // =====================================================
-// 5) Giphy
+// 5) Giphy - GIFs نظيفة فقط (rating=g)
 // =====================================================
-const GIPHY_KEYWORDS = ['celebration', 'winner', 'funny', 'lol', 'crown', 'party', 'fire'];
+// Keywords مختارة للضحك والتطقطقة بدون محتوى وسخ
+const GIPHY_KEYWORDS = [
+  'high five',
+  'happy dance',
+  'thumbs up',
+  'applause',
+  'congratulations',
+  'fail',
+  'shocked',
+  'surprised',
+  'mind blown',
+  'celebration kids',
+  'cartoon laugh',
+  'spongebob',
+  'minions',
+  'simpsons',
+];
 
 export async function fetchRandomGif(keyword) {
   const k = keyword || GIPHY_KEYWORDS[Math.floor(Math.random() * GIPHY_KEYWORDS.length)];
 
   if (!GIPHY_API_KEY || GIPHY_API_KEY.startsWith('REPLACE_ME')) {
-    console.warn('[ياللي] مفتاح Giphy ما تم ضبطه - راح نرجع GIF placeholder');
+    console.warn('[ياللي] مفتاح Giphy ما تم ضبطه');
     return null;
   }
 
   try {
-    const url = `https://api.giphy.com/v1/gifs/random?api_key=${encodeURIComponent(GIPHY_API_KEY)}&tag=${encodeURIComponent(k)}&rating=pg-13`;
+    // rating=g → general audience فقط (الأكثر أماناً)
+    const url = `https://api.giphy.com/v1/gifs/random?api_key=${encodeURIComponent(GIPHY_API_KEY)}&tag=${encodeURIComponent(k)}&rating=g`;
     const res = await fetch(url);
     const json = await res.json();
     return json?.data?.images?.original?.url || json?.data?.images?.downsized_medium?.url || null;
@@ -402,37 +470,143 @@ export function escapeHtml(s) {
 }
 
 // =====================================================
-// 8) رسائل عشوائية مضحكة لشاشات الانتظار
+// 8) Themes - ثيمات اللعبة
 // =====================================================
-const WAITING_MESSAGES = [
-  'يبيلها صبر... شكل فلان لسا يفكّر',
-  'حسبتوها سهلة؟ خذوا وقتكم',
-  'اللي يخلّص بمرجلة، عليه القهوة',
-  'يا شيخ ما عندنا وقت',
-  'فكّر في أحرج موقف صار لكم',
-  'الفايز اللي عنده أجرأ سؤال',
-  'لا تكتبون شي يحرج أمكم',
-  'المحترش تكفي من السوالف',
-  'خل المرجلة فيك واكتب',
-  'الشلة كلها تنتظرك',
-];
+// كل ثيم: ألوان + كلمات GIF + رسائل انتظار + نداءات للفايز
+// شبابي/بنات/عائلية - بدون لون أو كلمة وسخة
+export const THEMES = {
+  shabaabia: {
+    id: 'shabaabia',
+    name: 'شبابية',
+    description: 'الشلة وأهل المرجلة',
+    primary: '#FFD700',
+    secondary: '#E94560',
+    giphyKeywords: ['high five', 'thumbs up', 'fail', 'shocked', 'cartoon laugh', 'spongebob'],
+    waitingMessages: [
+      'يبيلها صبر... شكل فلان لسا يفكّر',
+      'حسبتوها سهلة؟ خذوا وقتكم',
+      'اللي يخلّص بمرجلة، عليه القهوة',
+      'يا شيخ ما عندنا وقت',
+      'فكّر في أحرج موقف صار لكم',
+      'الفايز اللي عنده أجرأ سؤال',
+      'خل المرجلة فيك واكتب',
+      'الشلة كلها تنتظرك',
+      'لا تكتبون شي يحرج أمكم',
+    ],
+    winnerTaglines: [
+      'الفايز هو',
+      'صاحب الموقف',
+      'بمرجلة',
+      'ولد الزين',
+      'هذا الرجّال',
+      'يا حلاوة',
+    ],
+    championLabel: 'شامبيون المرجلة',
+    greeting: 'يا شيخ',
+  },
 
-export function randomWaitingMessage() {
-  return WAITING_MESSAGES[Math.floor(Math.random() * WAITING_MESSAGES.length)];
+  banat: {
+    id: 'banat',
+    name: 'بنات',
+    description: 'لشلة الأخوات',
+    primary: '#FF6FAB',
+    secondary: '#A855F7',
+    giphyKeywords: ['happy dance', 'cute', 'celebration', 'applause', 'congratulations', 'high five girls'],
+    waitingMessages: [
+      'يلا يا الحلوات',
+      'احرجوا الشوف',
+      'الجوفية بتنتظركم',
+      'فكّروا في موقف يضحّك',
+      'وش رايكم نخلّص بسرعة؟',
+      'اللي تخلّص قبل، عليها قهوة',
+      'الشلة كلها تنتظرك',
+      'يلا، مين أكثر بنت ضحكتنا؟',
+    ],
+    winnerTaglines: [
+      'الفايزة هي',
+      'صاحبة الموقف',
+      'يا قلبي',
+      'الحلوة',
+      'ضحكة الشلة',
+      'يا حلاوة',
+    ],
+    championLabel: 'شامبيونة الجلسة',
+    greeting: 'يا حلوة',
+  },
+
+  family: {
+    id: 'family',
+    name: 'عائلية',
+    description: 'لجلسات الأهل',
+    primary: '#00D9A3',
+    secondary: '#FFA500',
+    giphyKeywords: ['cartoon laugh', 'spongebob', 'minions', 'happy kids', 'celebration kids', 'thumbs up'],
+    waitingMessages: [
+      'يا أهل البيت، يلا',
+      'الجمعة العائلية تنتظر',
+      'الأطفال أسرع من الكبار',
+      'وش رايكم نضحّك بعض؟',
+      'العائلة كلها معنا',
+      'فكّر في موقف صار في البيت',
+      'يا أهل الزين، خلّصوا',
+      'الكبار أبطأ مرة',
+    ],
+    winnerTaglines: [
+      'الفايز',
+      'صاحب الموقف',
+      'فخر العائلة',
+      'ضحكة البيت',
+      'يا حلاوة',
+      'يا أهل الزين',
+    ],
+    championLabel: 'شامبيون العائلة',
+    greeting: 'يا غالي',
+  },
+};
+
+export function getTheme(id) {
+  return THEMES[id] || THEMES.shabaabia;
 }
 
-const WINNER_TAGLINES = [
-  'الفايز هو',
-  'صاحب الموقف',
-  'بمرجلة',
-  'يا حلاوة',
-  'ولد الزين',
-  'فكّوا حظكم',
-  'هذا الرجّال',
-];
+// تطبيق الثيم على الـ DOM (CSS variables موجودة في style.css لكل ثيم)
+export function applyTheme(themeId) {
+  document.documentElement.dataset.theme = (themeId || 'shabaabia');
+}
 
-export function randomWinnerTagline() {
-  return WINNER_TAGLINES[Math.floor(Math.random() * WINNER_TAGLINES.length)];
+// النداء المناسب للثيم: "يا شيخ" / "يا حلوة" / "يا غالي"
+export function themeGreeting(themeId) {
+  return getTheme(themeId).greeting;
+}
+
+// تحديث الـ placeholders/labels اللي فيها نداء بناءً على الثيم
+export function refreshThemeStrings(themeId) {
+  const greeting = themeGreeting(themeId);
+  document.querySelectorAll('[data-theme-greeting]').forEach((el) => {
+    const tmpl = el.dataset.themeGreeting;
+    const value = tmpl.replace('{greeting}', greeting);
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      el.placeholder = value;
+    } else {
+      el.textContent = value;
+    }
+  });
+}
+
+// Random helpers لكل ثيم
+export function randomWaitingMessage(themeId) {
+  const list = getTheme(themeId).waitingMessages;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+export function randomWinnerTagline(themeId) {
+  const list = getTheme(themeId).winnerTaglines;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+// مفاتيح Giphy حسب الثيم
+export function themeGiphyKeyword(themeId) {
+  const list = getTheme(themeId).giphyKeywords;
+  return list[Math.floor(Math.random() * list.length)];
 }
 
 // =====================================================
