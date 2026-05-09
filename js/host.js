@@ -9,6 +9,7 @@ import {
   createRoom, listenRoom, setRoomState, startNextRound,
   tallyAndCloseRound, finishGame, fetchRandomGif, showToast,
   escapeHtml, randomWaitingMessage, randomWinnerTagline,
+  submitQuestion, markFinishedWriting, castVote,
   STATES,
 } from './game-logic.js';
 
@@ -24,6 +25,8 @@ let lastState = null;
 let currentRoundQid = null; // علشان نمنع تكرار جلب الـ GIF لنفس الجولة
 let funnyMsgTimer = null;
 let lastWinnerUid = null;
+let myQuestionsCount = 0;   // كم سؤال كتبه الهوست
+let voteInFlight = false;   // قفل التصويت
 
 // =====================================================
 // Init
@@ -126,6 +129,60 @@ function setupLobbyUI() {
   $('btn-reveal').addEventListener('click', revealRound);
   $('btn-next-q').addEventListener('click', startVotingRound);
   $('btn-end-game').addEventListener('click', () => finishGame(roomCode).catch(console.error));
+
+  // واجهة كتابة الهوست (الهوست لاعب أيضاً)
+  setupHostWritingHandlers();
+}
+
+// =====================================================
+// Host-as-player: writing UI
+// =====================================================
+function setupHostWritingHandlers() {
+  const qInput = $('host-question-input');
+  const charCount = $('host-char-count');
+
+  qInput.addEventListener('input', () => {
+    charCount.textContent = qInput.value.length;
+  });
+
+  $('btn-host-submit-q').addEventListener('click', async () => {
+    const text = qInput.value.trim();
+    if (text.length < 5) {
+      showToast('السؤال قصير، طوّله شوي يا شيخ', 'error');
+      return;
+    }
+    $('btn-host-submit-q').disabled = true;
+    try {
+      await submitQuestion(roomCode, myUid, text);
+      myQuestionsCount++;
+      qInput.value = '';
+      charCount.textContent = '0';
+      $('host-written-state').classList.remove('hidden');
+      $('btn-host-finished-writing').disabled = false;
+      showToast('انكتب السؤال', 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('فشل إرسال السؤال', 'error');
+    } finally {
+      $('btn-host-submit-q').disabled = false;
+    }
+  });
+
+  $('btn-host-finished-writing').addEventListener('click', async () => {
+    if (myQuestionsCount === 0) {
+      showToast('اكتب على الأقل سؤال واحد', 'error');
+      return;
+    }
+    $('btn-host-finished-writing').disabled = true;
+    try {
+      await markFinishedWriting(roomCode, myUid, true);
+      $('btn-host-finished-writing').innerHTML = '<span>خلّصت</span>';
+    } catch (err) {
+      console.error(err);
+      showToast('فشل التأكيد', 'error');
+      $('btn-host-finished-writing').disabled = false;
+    }
+  });
 }
 
 // =====================================================
@@ -155,6 +212,23 @@ function renderRoom(room) {
       $(`screen-${s}`).classList.toggle('hidden', s !== state);
     });
     lastState = state;
+
+    // إعادة الضبط بين الجولات
+    if (state === STATES.WRITING) {
+      myQuestionsCount = 0;
+      $('host-written-state').classList.add('hidden');
+      const fwBtn = $('btn-host-finished-writing');
+      fwBtn.disabled = true;
+      fwBtn.innerHTML = '<span>خلّصت</span>';
+      $('host-question-input').value = '';
+      $('host-char-count').textContent = '0';
+      $('btn-host-submit-q').disabled = false;
+    }
+
+    if (state === STATES.VOTING) {
+      voteInFlight = false;
+      $('host-voted-state').classList.add('hidden');
+    }
   }
 
   switch (state) {
@@ -259,6 +333,34 @@ function renderVoting(room) {
   const votes = round.votes || {};
   const voted = Object.keys(votes).length;
   const total = players.length;
+  const myVote = votes[myUid];
+
+  // أزرار التصويت للهوست (يمنع التصويت لنفسه)
+  const voteContainer = $('host-vote-buttons');
+  voteContainer.innerHTML = players.map((p) => {
+    const isMe = p.uid === myUid;
+    const isSelected = myVote === p.uid;
+    return `
+      <button
+        type="button"
+        data-uid="${p.uid}"
+        class="player-chip ${isSelected ? 'selected' : ''}"
+        ${isMe || myVote || voteInFlight ? 'disabled' : ''}
+      >
+        ${escapeHtml(p.name)}${isMe ? ' · أنت' : ''}
+      </button>
+    `;
+  }).join('');
+
+  voteContainer.querySelectorAll('button[data-uid]').forEach((btn) => {
+    btn.addEventListener('click', () => handleHostVote(btn.dataset.uid));
+  });
+
+  if (myVote) {
+    $('host-voted-state').classList.remove('hidden');
+  } else {
+    $('host-voted-state').classList.add('hidden');
+  }
 
   $('voting-question').textContent = round.questionText;
   $('voting-done').textContent = voted;
@@ -283,6 +385,26 @@ async function revealRound() {
     console.error(err);
     showToast('فشل عرض النتيجة', 'error');
     $('btn-reveal').disabled = false;
+  }
+}
+
+async function handleHostVote(votedForUid) {
+  if (voteInFlight) return;
+  voteInFlight = true;
+
+  const buttons = $('host-vote-buttons').querySelectorAll('button');
+  buttons.forEach((b) => b.disabled = true);
+
+  try {
+    await castVote(roomCode, myUid, votedForUid);
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'فشل التصويت', 'error');
+    voteInFlight = false;
+    // أعد تفعيل الأزرار (ما عدا الهوست)
+    buttons.forEach((b) => {
+      b.disabled = b.dataset.uid === myUid;
+    });
   }
 }
 

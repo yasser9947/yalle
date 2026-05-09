@@ -64,26 +64,51 @@
 
       <!-- 3) Writing -->
       <section id="screen-writing" class="hidden">
-        <div class="glass p-6 sm:p-10 text-center card-pop max-w-2xl mx-auto">
-          <h2 class="text-3xl sm:text-4xl font-black mb-2 neon-gold">الشلة يكتبون أسئلتهم</h2>
-          <p id="writing-funny-msg" class="text-muted font-bold mb-6">…</p>
+        <div class="glass p-6 sm:p-10 card-pop max-w-2xl mx-auto">
+          <h2 class="text-3xl sm:text-4xl font-black mb-2 neon-gold text-center">اكتب أسئلتك</h2>
+          <p class="text-center text-muted text-sm mb-6">"مين فيكم...؟" — شي يضحك أو يحرج</p>
 
-          <div class="mb-6">
-            <div class="flex items-center justify-between mb-2 text-sm font-bold">
-              <span>التقدّم</span>
-              <span><span id="writing-done">0</span> / <span id="writing-total">0</span></span>
-            </div>
-            <div class="progress-bar">
-              <div id="writing-progress" class="progress-bar-fill" style="width:0%"></div>
-            </div>
+          <!-- Host writing form -->
+          <textarea id="host-question-input" maxlength="200" placeholder="مثلاً: مين فيكم ينام في المحاضرة؟" class="input-glow mb-2"></textarea>
+          <div class="flex justify-between text-xs text-muted mb-4">
+            <span>تقدر تكتب أكثر من سؤال</span>
+            <span><span id="host-char-count">0</span>/200</span>
           </div>
 
-          <div id="writing-players" class="grid sm:grid-cols-2 gap-2 mb-6"></div>
-
-          <button id="btn-start-voting" class="btn-neon w-full" disabled>
-            <span>ابدأ التصويت</span>
+          <button id="btn-host-submit-q" class="btn-neon w-full mb-3">
+            <span>أرسل السؤال</span>
           </button>
-          <p class="text-xs text-center text-muted mt-3">الزر يفعّل لما الكل يخلّص</p>
+
+          <div id="host-written-state" class="hidden text-center p-3 glass rounded-xl mb-3">
+            <p class="font-bold text-success">انكتب السؤال</p>
+            <p class="text-xs text-muted mt-1">تقدر تكتب غيره</p>
+          </div>
+
+          <button id="btn-host-finished-writing" class="btn-neon btn-neon-red w-full mb-8" disabled>
+            <span>خلّصت</span>
+          </button>
+
+          <!-- شريط التقدم العام -->
+          <div class="border-t border-gold/15 pt-6">
+            <p id="writing-funny-msg" class="text-muted font-bold mb-4 text-center text-sm">…</p>
+
+            <div class="mb-4">
+              <div class="flex items-center justify-between mb-2 text-sm font-bold">
+                <span>تقدّم الشلة</span>
+                <span><span id="writing-done">0</span> / <span id="writing-total">0</span></span>
+              </div>
+              <div class="progress-bar">
+                <div id="writing-progress" class="progress-bar-fill" style="width:0%"></div>
+              </div>
+            </div>
+
+            <div id="writing-players" class="grid sm:grid-cols-2 gap-2 mb-6"></div>
+
+            <button id="btn-start-voting" class="btn-neon w-full" disabled>
+              <span>ابدأ التصويت</span>
+            </button>
+            <p class="text-xs text-center text-muted mt-3">الزر يفعّل لما الكل يخلّص</p>
+          </div>
         </div>
       </section>
 
@@ -93,22 +118,34 @@
           <p class="text-center text-muted font-bold mb-2 tracking-widest text-sm">السؤال</p>
           <h2 id="voting-question" class="text-3xl sm:text-5xl font-black text-center mb-8 neon-gold leading-tight">…</h2>
 
-          <div class="mb-6">
-            <div class="flex items-center justify-between mb-2 text-sm font-bold">
-              <span>التصويت</span>
-              <span><span id="voting-done">0</span> / <span id="voting-total">0</span></span>
-            </div>
-            <div class="progress-bar">
-              <div id="voting-progress" class="progress-bar-fill" style="width:0%"></div>
-            </div>
+          <!-- Host vote buttons -->
+          <p class="text-center text-muted text-sm mb-3">صوّت بمرجلة</p>
+          <div id="host-vote-buttons" class="grid sm:grid-cols-2 gap-3 mb-4"></div>
+
+          <div id="host-voted-state" class="hidden text-center p-3 glass rounded-xl mb-6">
+            <p class="font-bold text-success">تم التصويت</p>
+            <p class="text-xs text-muted mt-1">انتظر الباقي يصوّتون</p>
           </div>
 
-          <div id="voting-players-status" class="grid sm:grid-cols-2 gap-2 mb-6"></div>
+          <!-- شريط التصويت العام -->
+          <div class="border-t border-gold/15 pt-6 mt-6">
+            <div class="mb-4">
+              <div class="flex items-center justify-between mb-2 text-sm font-bold">
+                <span>تقدّم التصويت</span>
+                <span><span id="voting-done">0</span> / <span id="voting-total">0</span></span>
+              </div>
+              <div class="progress-bar">
+                <div id="voting-progress" class="progress-bar-fill" style="width:0%"></div>
+              </div>
+            </div>
 
-          <button id="btn-reveal" class="btn-neon w-full" disabled>
-            <span>اكشف الفايز</span>
-          </button>
-          <p class="text-xs text-center text-muted mt-3">يفعّل لما الكل يصوّت</p>
+            <div id="voting-players-status" class="grid sm:grid-cols-2 gap-2 mb-6"></div>
+
+            <button id="btn-reveal" class="btn-neon w-full" disabled>
+              <span>اكشف الفايز</span>
+            </button>
+            <p class="text-xs text-center text-muted mt-3">يفعّل لما الكل يصوّت</p>
+          </div>
         </div>
       </section>
 
