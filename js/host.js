@@ -14,6 +14,7 @@ import {
   setupOfflineBanner, showPageTransition,
   scheduleRoomCleanupOnDisconnect, deleteRoom,
   applyTheme, getTheme, themeGiphyKeyword, themeGreeting, refreshThemeStrings,
+  skipCurrentQuestion,
   STATES,
 } from './game-logic.js';
 
@@ -178,6 +179,17 @@ function setupLobbyUI() {
   $('btn-force-reveal').addEventListener('click', async () => {
     if (!confirm('متأكد؟ في لاعبين ما صوّتوا')) return;
     await revealRound();
+  });
+
+  // تخطّي السؤال - لو السؤال محرج أو يسبب مشكلة
+  $('btn-skip-question').addEventListener('click', async (e) => {
+    if (!confirm('تخطّ هذا السؤال؟ ما حد يكسب نقطة وننتقل للسؤال الجاي.')) return;
+    try {
+      await withButtonLoading(e.currentTarget, () => skipCurrentQuestion(roomCode));
+    } catch (err) {
+      console.error(err);
+      showToast('فشل تخطّي السؤال', 'error');
+    }
   });
 
   // واجهة كتابة الهوست (الهوست لاعب أيضاً)
@@ -518,17 +530,22 @@ async function renderResults(room) {
   const winnerObjs = winnersUids.map((uid) => players.find((p) => p.uid === uid)).filter(Boolean);
   const tally = round.tally || {};
   const tied = winnersUids.length > 1;
+  const skipped = round.skipped === true;
 
-  $('results-tagline').textContent = tied ? 'تعادل! الفايزون' : randomWinnerTagline(selectedTheme);
-
-  // عرض الفايز/الفايزين
-  if (winnerObjs.length === 0) {
-    $('winner-name').textContent = 'ما حد فاز';
+  if (skipped) {
+    $('results-tagline').textContent = 'اتخطّى الهوست هذا السؤال';
+    $('winner-name').textContent = '—';
     $('winner-votes').textContent = '0';
   } else if (tied) {
+    $('results-tagline').textContent = 'تعادل! الفايزون';
     $('winner-name').innerHTML = winnerObjs.map((p) => escapeHtml(p.name)).join('<br>');
     $('winner-votes').textContent = tally[winnersUids[0]] || 0;
+  } else if (winnerObjs.length === 0) {
+    $('results-tagline').textContent = randomWinnerTagline(selectedTheme);
+    $('winner-name').textContent = 'ما حد فاز';
+    $('winner-votes').textContent = '0';
   } else {
+    $('results-tagline').textContent = randomWinnerTagline(selectedTheme);
     $('winner-name').textContent = winnerObjs[0].name;
     $('winner-votes').textContent = tally[winnerUid] || 0;
   }
@@ -554,28 +571,33 @@ async function renderResults(room) {
     $('btn-end-game').textContent = 'إنهاء اللعبة';
   }
 
-  // Confetti + GIF (مرة واحدة لكل جولة)
+  // Confetti + GIF - فقط لو ما اتخطّى
   if (round.questionId !== currentRoundQid) {
     currentRoundQid = round.questionId;
     lastWinnerUid = winnerUid;
 
-    if (typeof confetti === 'function') {
-      const t = getTheme(selectedTheme);
-      confetti({
-        particleCount: tied ? 220 : 150,
-        spread: 90,
-        origin: { y: 0.5 },
-        colors: [t.primary, t.secondary, '#00D9A3'],
-      });
-    }
-
-    // جلب GIF حسب ثيم الغرفة
-    $('gif-container').innerHTML = '<div class="spinner"></div>';
-    const gifUrl = await fetchRandomGif(themeGiphyKeyword(selectedTheme));
-    if (gifUrl) {
-      $('gif-container').innerHTML = `<img src="${gifUrl}" alt="celebration" class="max-h-72 mx-auto" />`;
-    } else {
+    if (skipped) {
+      // لا confetti لما يتخطّى — بس خط ذهبي خفيف
       $('gif-container').innerHTML = '<div class="winner-divider"></div>';
+    } else {
+      if (typeof confetti === 'function') {
+        const t = getTheme(selectedTheme);
+        confetti({
+          particleCount: tied ? 220 : 150,
+          spread: 90,
+          origin: { y: 0.5 },
+          colors: [t.primary, t.secondary, '#00D9A3'],
+        });
+      }
+
+      // جلب GIF حسب ثيم الغرفة
+      $('gif-container').innerHTML = '<div class="spinner"></div>';
+      const gifUrl = await fetchRandomGif(themeGiphyKeyword(selectedTheme));
+      if (gifUrl) {
+        $('gif-container').innerHTML = `<img src="${gifUrl}" alt="celebration" class="max-h-72 mx-auto" />`;
+      } else {
+        $('gif-container').innerHTML = '<div class="winner-divider"></div>';
+      }
     }
   }
 }

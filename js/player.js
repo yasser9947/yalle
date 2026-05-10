@@ -310,22 +310,28 @@ async function renderResults(room) {
   const tally = round.tally || {};
   const tied = winnersUids.length > 1;
   const iAmWinner = winnersUids.includes(myUid);
+  const skipped = round.skipped === true;
 
-  $('player-results-tagline').textContent = tied ? 'تعادل! الفايزون' : randomWinnerTagline(currentTheme);
-
-  if (winnerObjs.length === 0) {
-    $('player-winner-name').textContent = 'ما حد فاز';
+  if (skipped) {
+    $('player-results-tagline').textContent = 'اتخطّى الهوست هذا السؤال';
+    $('player-winner-name').textContent = '—';
     $('player-winner-votes').textContent = '0';
   } else if (tied) {
+    $('player-results-tagline').textContent = 'تعادل! الفايزون';
     $('player-winner-name').innerHTML = winnerObjs.map((p) => escapeHtml(p.name)).join('<br>');
     $('player-winner-votes').textContent = tally[winnersUids[0]] || 0;
+  } else if (winnerObjs.length === 0) {
+    $('player-results-tagline').textContent = randomWinnerTagline(currentTheme);
+    $('player-winner-name').textContent = 'ما حد فاز';
+    $('player-winner-votes').textContent = '0';
   } else {
+    $('player-results-tagline').textContent = randomWinnerTagline(currentTheme);
     $('player-winner-name').textContent = winnerObjs[0].name;
     $('player-winner-votes').textContent = tally[winnerUid] || 0;
   }
 
-  // إذا أنا فايز - confetti
-  if (iAmWinner && round.questionId !== currentRoundQid) {
+  // إذا أنا فايز - confetti (ما يصير لو اتخطّى)
+  if (!skipped && iAmWinner && round.questionId !== currentRoundQid) {
     if (typeof confetti === 'function') {
       const t = getTheme(currentTheme);
       confetti({
@@ -337,15 +343,19 @@ async function renderResults(room) {
     }
   }
 
-  // GIF (مرة لكل جولة)
+  // GIF فقط لو ما اتخطّى
   if (round.questionId !== currentRoundQid) {
     currentRoundQid = round.questionId;
-    $('player-gif').innerHTML = '<div class="spinner"></div>';
-    const gifUrl = await fetchRandomGif(themeGiphyKeyword(currentTheme));
-    if (gifUrl) {
-      $('player-gif').innerHTML = `<img src="${gifUrl}" alt="celebration" class="max-h-56 mx-auto" />`;
-    } else {
+    if (skipped) {
       $('player-gif').innerHTML = '<div class="winner-divider"></div>';
+    } else {
+      $('player-gif').innerHTML = '<div class="spinner"></div>';
+      const gifUrl = await fetchRandomGif(themeGiphyKeyword(currentTheme));
+      if (gifUrl) {
+        $('player-gif').innerHTML = `<img src="${gifUrl}" alt="celebration" class="max-h-56 mx-auto" />`;
+      } else {
+        $('player-gif').innerHTML = '<div class="winner-divider"></div>';
+      }
     }
   }
 }

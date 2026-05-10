@@ -304,6 +304,19 @@ export async function tallyAndCloseRound(code) {
   return { winnerUid, winners, tally };
 }
 
+// تخطّي السؤال الحالي (الهوست يقدر يضغطها لو السؤال محرج)
+// ما حد يكسب نقطة، الكل يشوف رسالة "اتخطّى السؤال"، ثم ننتقل للسؤال الجاي
+export async function skipCurrentQuestion(code) {
+  const { db } = initFirebase();
+  await update(ref(db, `rooms/${code}/currentRound`), {
+    skipped: true,
+    winnerUid: null,
+    tally: {},
+    winners: [],
+  });
+  await setRoomState(code, STATES.RESULTS);
+}
+
 // إنهاء اللعبة
 export async function finishGame(code) {
   await setRoomState(code, STATES.FINISHED);
