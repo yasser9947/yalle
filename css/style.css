@@ -584,6 +584,35 @@ textarea.input-glow {
   40%, 80% { transform: scale(0.95); }
 }
 
+/* رابط LinkedIn (بواسطة ياسر) */
+.credit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: rgba(234, 234, 234, 0.04);
+  border: 1px solid rgba(234, 234, 234, 0.12);
+  transition: all 0.25s ease;
+  text-decoration: none;
+}
+.credit-link:hover {
+  color: #0A66C2;
+  background: rgba(10, 102, 194, 0.12);
+  border-color: rgba(10, 102, 194, 0.45);
+  box-shadow: 0 0 18px rgba(10, 102, 194, 0.3);
+}
+.credit-link .li-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
 /* زر "كيف تلعب" */
 .btn-howto {
   display: inline-flex;
