@@ -16,8 +16,11 @@ import {
 import {
   getAuth, signInAnonymously, onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js';
+import {
+  initializeAppCheck, ReCaptchaV3Provider
+} from 'https://www.gstatic.com/firebasejs/10.13.2/firebase-app-check.js';
 
-import { firebaseConfig, GIPHY_API_KEY } from './firebase-config.js';
+import { firebaseConfig, GIPHY_API_KEY, RECAPTCHA_SITE_KEY } from './firebase-config.js';
 
 // =====================================================
 // 1) Firebase init - lazy singleton
@@ -25,6 +28,7 @@ import { firebaseConfig, GIPHY_API_KEY } from './firebase-config.js';
 let _app = null;
 let _db  = null;
 let _auth = null;
+let _appCheck = null;
 
 export function initFirebase() {
   if (_app) return { app: _app, db: _db, auth: _auth };
@@ -33,7 +37,26 @@ export function initFirebase() {
     console.warn('[ياللي] Firebase config لسا فاضي - عبّيه في js/firebase-config.js');
   }
 
-  _app  = initializeApp(firebaseConfig);
+  // App Check debug mode على localhost (الـ console يطبع debug token)
+  // المستخدم لازم يضيف الـ token في Firebase Console → App Check → Apps → ⋮ → Manage debug tokens
+  if (typeof self !== 'undefined' && location.hostname === 'localhost') {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+
+  _app = initializeApp(firebaseConfig);
+
+  // فعّل App Check قبل أي خدمة ثانية
+  if (RECAPTCHA_SITE_KEY && !RECAPTCHA_SITE_KEY.startsWith('REPLACE') && RECAPTCHA_SITE_KEY.length > 20) {
+    try {
+      _appCheck = initializeAppCheck(_app, {
+        provider: new ReCaptchaV3Provider(RECAPTCHA_SITE_KEY),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (err) {
+      console.warn('[ياللي] App Check init failed:', err);
+    }
+  }
+
   _db   = getDatabase(_app);
   _auth = getAuth(_app);
   return { app: _app, db: _db, auth: _auth };
