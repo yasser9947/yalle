@@ -454,17 +454,20 @@ function renderVoting(room) {
 
   // أزرار التصويت — تعرض الكل (online + offline) عشان لو واحد طلع
   // الباقي يقدرون يصوّتون عليه (طلب المستخدم: لا نحذفه من الخيارات)
+  // التصويت للنفس مسموح فقط لو في ٢ لاعبين بالضبط
+  const allowSelfVote = all.length <= 2;
   const voteContainer = $('host-vote-buttons');
   voteContainer.innerHTML = all.map((p) => {
     const isMe = p.uid === myUid;
     const isOffline = p.online === false;
     const isSelected = myVote === p.uid;
+    const blockMe = isMe && !allowSelfVote;
     return `
       <button
         type="button"
         data-uid="${p.uid}"
         class="player-chip ${isSelected ? 'selected' : ''} ${isOffline ? 'opacity-60' : ''}"
-        ${isMe || myVote || voteInFlight ? 'disabled' : ''}
+        ${blockMe || myVote || voteInFlight ? 'disabled' : ''}
       >
         ${escapeHtml(p.name)}${isMe ? ' · أنت' : ''}${isOffline ? ' · طلع' : ''}
       </button>

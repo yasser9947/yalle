@@ -268,10 +268,16 @@ export async function startNextRound(code) {
 }
 
 // تصويت لاعب
+// التصويت للنفس مسموح فقط لو في الغرفة ٢ لاعبين بالضبط
+// (عشان ما يصير دايماً تعادل في الحالة دي)
 export async function castVote(code, voterUid, votedForUid) {
   const { db } = initFirebase();
   if (voterUid === votedForUid) {
-    throw new Error('ما تقدر تصوّت لنفسك يا شيخ');
+    const playersSnap = await get(ref(db, `rooms/${code}/players`));
+    const count = playersSnap.exists() ? Object.keys(playersSnap.val()).length : 0;
+    if (count > 2) {
+      throw new Error('ما تقدر تصوّت لنفسك يا شيخ');
+    }
   }
   await update(ref(db, `rooms/${code}/currentRound/votes`), {
     [voterUid]: votedForUid,
