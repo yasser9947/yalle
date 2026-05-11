@@ -121,6 +121,31 @@ export function roomRef(code) {
   return ref(db, `rooms/${code}`);
 }
 
+// قراءة الغرفة - يرجع null لو ما موجودة
+export async function getRoom(code) {
+  const { db } = initFirebase();
+  const snap = await get(ref(db, `rooms/${code}`));
+  return snap.exists() ? snap.val() : null;
+}
+
+// تأمين online=true باستمرار + إعادة تأسيس onDisconnect كل ما يرجع الاتصال
+// هذا يحل: لما يخلّص الكتابة وتقطع الـ WS لحظة، الـ onDisconnect كان
+// يخلي online=false ولا يرجع true تلقائياً → اللاعب يطلع من اللعبة
+export function autoReclaimOnline(code, uid) {
+  const { db } = initFirebase();
+  const connRef = ref(db, '.info/connected');
+  return onValue(connRef, async (snap) => {
+    if (snap.val() === true) {
+      try {
+        await update(ref(db, `rooms/${code}/players/${uid}`), { online: true });
+        onDisconnect(ref(db, `rooms/${code}/players/${uid}/online`)).set(false);
+      } catch (err) {
+        console.warn('[ياللي] فشل إعادة تأمين online:', err);
+      }
+    }
+  });
+}
+
 // إنشاء غرفة جديدة - الهوست يستدعيها
 export async function createRoom(code, hostUid, hostName = 'الهوست', themeId = 'shabaabia') {
   const { db } = initFirebase();

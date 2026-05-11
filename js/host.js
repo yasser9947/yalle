@@ -14,7 +14,7 @@ import {
   setupOfflineBanner, showPageTransition,
   scheduleRoomCleanupOnDisconnect, deleteRoom,
   applyTheme, getTheme, themeGiphyKeyword, themeGreeting, refreshThemeStrings,
-  skipCurrentQuestion,
+  skipCurrentQuestion, getRoom, autoReclaimOnline,
   STATES,
 } from './game-logic.js';
 
@@ -66,7 +66,26 @@ let cleanupScheduled = false;     // علم إن الـ onDisconnect cleanup ا�
   // اتصلنا بنجاح - فعّل بانر offline
   setupOfflineBanner();
 
-  // أخفِ شاشة التحميل + اعرض شاشة الاسم
+  // إذا الغرفة موجودة وأنا الهوست → ارجع بدون إعادة إنشاء
+  // (هذا يحل: ريفريش الهوست كان يمسح كل بيانات اللعبة)
+  try {
+    const existing = await getRoom(roomCode);
+    if (existing && existing.host === myUid) {
+      selectedTheme = existing.theme || 'shabaabia';
+      applyTheme(selectedTheme);
+      refreshThemeStrings(selectedTheme);
+      autoReclaimOnline(roomCode, myUid);
+      clearTimeout(slowTimer);
+      hideBootLoader();
+      setupLobbyUI();
+      startListeningToRoom();
+      return;
+    }
+  } catch (err) {
+    console.warn('[ياللي] فشل فحص الغرفة:', err);
+  }
+
+  // أخفِ شاشة التحميل + اعرض شاشة الاسم (لاول مرة)
   clearTimeout(slowTimer);
   hideBootLoader();
   $('screen-name').classList.remove('hidden');
@@ -105,6 +124,9 @@ async function startHosting() {
     showToast('فشل إنشاء الغرفة - حاول مرة ثانية', 'error');
     return;
   }
+
+  // تأمين online + onDisconnect عند الـ reconnects
+  autoReclaimOnline(roomCode, myUid);
 
   $('screen-name').classList.add('hidden');
   setupLobbyUI();
@@ -416,32 +438,35 @@ function renderVoting(room) {
   if (!round) return;
 
   const all = playersArray(room);
-  const players = all.filter((p) => p.online !== false);
-  const onlineUids = new Set(players.map((p) => p.uid));
+  // المتصلين = من بإمكانه يصوّت الآن (للعداد)
+  const onlinePlayers = all.filter((p) => p.online !== false);
+  const onlineUids = new Set(onlinePlayers.map((p) => p.uid));
 
   const allVotes = round.votes || {};
-  // فلترة الأصوات الشبحية (من خرج)
+  // فلترة الأصوات الشبحية - فقط من المتصلين تُحتسب في العداد
   const liveVotes = Object.fromEntries(
     Object.entries(allVotes).filter(([voterUid]) => onlineUids.has(voterUid))
   );
   const voted = Object.keys(liveVotes).length;
-  const total = players.length;
+  const total = onlinePlayers.length;
   const votes = liveVotes;
   const myVote = votes[myUid];
 
-  // أزرار التصويت للهوست (يمنع التصويت لنفسه)
+  // أزرار التصويت — تعرض الكل (online + offline) عشان لو واحد طلع
+  // الباقي يقدرون يصوّتون عليه (طلب المستخدم: لا نحذفه من الخيارات)
   const voteContainer = $('host-vote-buttons');
-  voteContainer.innerHTML = players.map((p) => {
+  voteContainer.innerHTML = all.map((p) => {
     const isMe = p.uid === myUid;
+    const isOffline = p.online === false;
     const isSelected = myVote === p.uid;
     return `
       <button
         type="button"
         data-uid="${p.uid}"
-        class="player-chip ${isSelected ? 'selected' : ''}"
+        class="player-chip ${isSelected ? 'selected' : ''} ${isOffline ? 'opacity-60' : ''}"
         ${isMe || myVote || voteInFlight ? 'disabled' : ''}
       >
-        ${escapeHtml(p.name)}${isMe ? ' · أنت' : ''}
+        ${escapeHtml(p.name)}${isMe ? ' · أنت' : ''}${isOffline ? ' · طلع' : ''}
       </button>
     `;
   }).join('');
@@ -461,7 +486,8 @@ function renderVoting(room) {
   $('voting-total').textContent = total;
   $('voting-progress').style.width = total ? `${(voted/total)*100}%` : '0%';
 
-  $('voting-players-status').innerHTML = players.map((p) => `
+  // عداد التصويت يعرض المتصلين فقط (لأنهم اللي بيصوّتون)
+  $('voting-players-status').innerHTML = onlinePlayers.map((p) => `
     <div class="flex items-center gap-3 p-3 glass rounded-xl">
       <span class="status-dot ${votes[p.uid] ? 'done' : ''}"></span>
       <span class="font-bold flex-1 truncate">${escapeHtml(p.name)}</span>

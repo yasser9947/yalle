@@ -11,6 +11,7 @@ import {
   randomWinnerTagline,
   hideBootLoader, startSlowBootWatch, withButtonLoading, setupOfflineBanner,
   applyTheme, getTheme, themeGiphyKeyword, themeGreeting, refreshThemeStrings,
+  autoReclaimOnline,
   STATES,
 } from './game-logic.js';
 
@@ -61,6 +62,7 @@ let currentTheme = 'shabaabia';
 
   // اتصلنا بنجاح
   setupOfflineBanner();
+  autoReclaimOnline(roomCode, myUid); // تأمين online عند كل reconnect
   clearTimeout(slowTimer);
   hideBootLoader();
 
@@ -229,20 +231,22 @@ function renderVoting(room) {
   $('voting-question').textContent = round.questionText;
 
   const all = playersArray(room);
-  const players = all.filter((p) => p.online !== false);
   const myVote = round.votes?.[myUid];
 
-  $('vote-buttons').innerHTML = players.map((p) => {
+  // أزرار التصويت — تعرض الكل (online + offline) عشان لو واحد طلع
+  // الباقي يقدرون يصوّتون عليه
+  $('vote-buttons').innerHTML = all.map((p) => {
     const isMe = p.uid === myUid;
+    const isOffline = p.online === false;
     const isSelected = myVote === p.uid;
     return `
       <button
         type="button"
         data-uid="${p.uid}"
-        class="player-chip w-full ${isSelected ? 'selected' : ''}"
+        class="player-chip w-full ${isSelected ? 'selected' : ''} ${isOffline ? 'opacity-60' : ''}"
         ${isMe || myVote || voteInFlight ? 'disabled' : ''}
       >
-        ${escapeHtml(p.name)}${isMe ? ' · أنت' : ''}
+        ${escapeHtml(p.name)}${isMe ? ' · أنت' : ''}${isOffline ? ' · طلع' : ''}
       </button>
     `;
   }).join('');
